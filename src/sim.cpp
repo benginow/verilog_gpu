@@ -89,11 +89,77 @@ public:
   }
 };
 
+struct BmpHeader {
+  char bitmapSignatureBytes[2];
+  uint32_t sizeOfBitmapFile;
+  uint32_t reservedBytes;
+  uint32_t pixelDataOffset;
+} __attribute__((packed));
+
+struct BmpInfoHeader {
+  uint32_t sizeOfThisHeader;
+  int32_t width;
+  int32_t height;
+  uint16_t numberOfColorPlanes;
+  uint16_t colorDepth;
+  uint32_t compressionMethod;
+  uint32_t rawBitmapDataSize;
+  int32_t horizontalResolution;
+  int32_t verticalResolution;
+  uint32_t colorTableEntries;
+  uint32_t importantColors;
+}__attribute__((packed));
+
+struct Pixel {
+  uint8_t blue;
+  uint8_t green;
+  uint8_t red;
+  Pixel(uint8_t red, uint8_t green, uint8_t blue): red(red), green(green), blue(blue) {}
+}__attribute__((packed));
+
+void writeBitmapImage(vector<vector<Pixel>> &image, string fileName) {
+  int32_t width = image.size(), height = width == 0 ? 0 : image[0].size();
+  BmpHeader bmpHeader = {{'B', 'M'}, (uint32_t) (54 + width * height * 3), 0, 54};
+  BmpInfoHeader bmpInfoHeader = {40, width, height, 1, 24, 0, 0, 3780, 3780, 0, 0};
+  ofstream fout(fileName, ios::binary);
+  fout.write((char*) &bmpHeader, 14);
+  fout.write((char*) &bmpInfoHeader, 40);
+  size_t numberOfPixels = width * height;
+  for (int i = 0; i < numberOfPixels; i++) {
+    fout.write((char*) &image[i / height][i % height], 3);
+  }
+  fout.close();
+}
+
 class Simulator {
 private:
   Object object;
+  string outputFile;
 public:
-  Simulator(string inputFile): object(inputFile) {
+  Simulator(string inputFile, string outputFile): object(inputFile), outputFile(outputFile) {
+  }
+
+  void run() {
+    vector<vector<Pixel>> image(640, vector<Pixel>(480, Pixel(0, 0, 0)));
+    Vvgademo* gpu = new Vvgademo;
+
+    uint32_t idx = 0;
+
+    while ((uint32_t) gpu->done != 1) {
+      gpu->clk = 0;
+      gpu->eval();
+      gpu->clk = 1;
+      gpu->eval();
+
+      Pixel &pixel = image[idx / 480][idx % 480];
+      pixel.red = ((gpu->pixel & 0xff0000) >> 16);
+      pixel.green = ((gpu->pixel & 0xff00) >> 8);
+      pixel.blue = (gpu->pixel & 0xff);
+
+      idx++;
+    }
+
+    writeBitmapImage(image, outputFile);
   }
 };
 
@@ -167,3 +233,17 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 */
+
+int main(int argc, char *argv[]) {
+  if (argc != 3) {
+    cout << "Usage: ./demo object.off output.bmp\n";
+    return 1;
+  }
+  string inputFile = string(argv[1]);
+  string outputFile = string(argv[2]);
+
+  Simulator sim(inputFile, outputFile);
+  sim.run();
+
+  return 0;
+}
