@@ -1,8 +1,8 @@
+    //stage zero is decode
+    //stage one is read regs
+    //stage two is read memory
+    //stage three is execute
 
-//inputs: where in memory is our first instruction (ie do we want to do )
-//          which queue should we add to next (pass in the queue)
-
-//this is not a pipelined core. just a simple joe schmoe core. it'll be ok. dw.
 module processor(
                 input clk,
 
@@ -12,18 +12,16 @@ module processor(
                 output[3:0] readreg1, input[15:0] in_reg1,                
                 output reg_wen, output[3:0] reg_waddr, output[15:0] reg_wval,
 
-                output[1:0] pred, input pred_reg,
-                output pred_wen, output[1:0] pred_waddr, output[]
+                output[1:0] pred, input pred_val,
+                output pred_wen, output[1:0] pred_waddr, output pred_wval,
                 
                 output[15:0] readmem0, input[15:0] in_mem0,
                 output mem_wen, output[15:0] mem_waddr, output[15:0] mem_wval,
 
-                output queue_wen, output[3:0] queue_number, output request_new_pc, input[15:0] new_pc
+                output queue_wen, output[3:0] queue_number, output request_new_pc, input[15:0] new_pc, input[1:0] idle
                 );
 
-    //stage one is decode
-    //stage two is read regs
-    //stage three is read/write
+
     reg[2:0] stage = 0;
 
     //stage 1 variables
@@ -45,14 +43,22 @@ module processor(
     //i/o variables
     wire[3:0] readreg0 = reg1;
     wire[3:0] readreg1 = reg2;
-    wire read_pred_reg = pred_reg;
+    wire read_pred_val = pred_val;
+
+    reg instr_wait = 0;
 
     always @(posedge clk) begin
 
-
         if (stage == 0) begin 
+            //waiting on the new program counter to show up
             if (request_new_pc) begin
-                pc <= new_pc;
+                //TODO: THIS IS GOING TO BE OFF BY ONE! FIX IT
+                
+                request_new_pc <= 0;
+            end
+
+            if (idle != 0) begin
+                stage <= 0;
             end
 
             pred <= instr[31:30];
@@ -62,22 +68,22 @@ module processor(
             reg1 <= instr[19:16];
             targetreg <= instr[15:12];
             constant <= instr[15:0];
-            //if we're requesting a new pc, we should not add 1 to pc
-            stage <= request_new_pc ? 0 : stage + 1;
+            stage <= (request_new_pc || idle) ? 0 : stage + 1;
 
             //make sure you're no longer writing
+            //MAKE SURE THIS COMPILES AHHHHH
             reg_wen <= 0;
             mem_wen <= 0;
             queue_wen <= 0;
             pred_wen <= 0;
-            request_new_pc <= 0;
+            
         end
 
         //read registers
         if (stage == 1) begin
             reg0val <= in_reg0;
             reg1val <= in_reg1;
-            predregval <= pred ? read_pred_reg : 1;
+            predregval <= pred ? read_pred_val : 1;
             stage <= stage + 1;
         end
 
