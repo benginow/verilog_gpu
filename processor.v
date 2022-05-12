@@ -18,7 +18,7 @@ module processor(
                 output[15:0] readmem0, input[15:0] in_mem0,
                 output mem_wen, output[15:0] mem_waddr, output[15:0] mem_wval,
 
-                output queue_wen, output[3:0] queue_number, output request_new_pc
+                output queue_wen, output[3:0] queue_number, output request_new_pc, input[15:0] new_pc
                 );
 
     //stage one is decode
@@ -51,6 +51,10 @@ module processor(
 
 
         if (stage == 0) begin 
+            if (request_new_pc) begin
+                pc <= new_pc;
+            end
+
             pred <= instr[31:30];
             optype <= instr[29]
             opcode <= instr[28:24];
@@ -58,7 +62,8 @@ module processor(
             reg1 <= instr[19:16];
             targetreg <= instr[15:12];
             constant <= instr[15:0];
-            stage <= stage + 1;
+            //if we're requesting a new pc, we should not add 1 to pc
+            stage <= request_new_pc ? 0 : stage + 1;
 
             //make sure you're no longer writing
             reg_wen <= 0;
@@ -188,6 +193,7 @@ module processor(
             end
 
             stage <= 0;
+            pc <= pc + 1;
         end
 
     end
