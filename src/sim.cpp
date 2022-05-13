@@ -162,6 +162,79 @@ Program transformationProgram({STOREQI(1, 0), END(0)});
 Program lightingProgram({STOREQI(2, 0), END(0)});
 Program projectionProgram({
     // LI(7, 0, 0),
+    //set reg 10
+    LI(10, 0xFFFF, 0),
+    LI(11, 16, 0);
+    LI(12, 2, 0);
+    LI(13, 1, 0);
+
+    //PROCESS 0 and 1
+    //process upper bits
+    LI(8, 0, 0), ADD(8, 0, 8, 0), SRL(8, 11, 8, 0),
+    //logic for division and all idk
+    SRL(8, 12, 8, 0), ADD(8, 13, 8, 0),
+    //process lower bits
+    LI(9, 0, 0), ADD(9, 0, 9, 0), AND(9, 10, 9, 0),
+    //math logig.
+    SRL(9, 12, 9, 0), ADD(9, 13, 9, 0),
+    //put them together
+    ADD(8, 9, 0, 0),
+
+    //PROCESS 3
+    //save upper bits
+    LI(8, 0, 0), ADD(8, 1, 8, 0), SRL(8, 11, 8, 0),
+    //process lower bits
+    LI(9, 1, 0), ADD(9, 1, 9, 0), AND(9, 10, 9, 0),
+    //math logig.
+    SRL(9, 12, 9, 0), ADD(9, 13, 9, 0),
+    //put them together
+    ADD(8, 9, 1, 0),
+
+    //PROCESS 4 and 5
+    //process upper bits
+    LI(8, 0, 0), ADD(8, 2, 8, 0), SRL(8, 11, 8, 0),
+    //logic for division and all idk
+    SRL(8, 12, 8, 0), ADD(8, 13, 8, 0),
+    //process lower bits
+    LI(9, 0, 0), ADD(9, 2, 9, 0), AND(9, 10, 9, 0),
+    //math logig.
+    SRL(9, 12, 9, 0), ADD(9, 13, 9, 0),
+    //put them together
+    ADD(8, 9, 2, 0),
+
+    //PROCESS 6
+    //save upper bits
+    LI(8, 0, 0), ADD(8, 3, 8, 0), SRL(8, 11, 8, 0),
+    //process lower bits
+    LI(9, 1, 0), ADD(9, 3, 9, 0), AND(9, 10, 9, 0),
+    //math logig.
+    SRL(9, 12, 9, 0), ADD(9, 13, 9, 0),
+    //put them together
+    ADD(8, 9, 3, 0),
+
+    //PROCESS 8 and 9
+    //process upper bits
+    LI(8, 0, 0), ADD(8, 4, 8, 0), SRL(8, 11, 8, 0),
+    //logic for division and all idk
+    SRL(8, 12, 8, 0), ADD(8, 13, 8, 0),
+    //process lower bits
+    LI(9, 0, 0), ADD(9, 4, 9, 0), AND(9, 10, 9, 0),
+    //math logig.
+    SRL(9, 12, 9, 0), ADD(9, 13, 9, 0),
+    //put them together
+    ADD(8, 9, 4, 0),
+
+    //PROCESS 10
+    //save upper bits
+    LI(8, 0, 0), ADD(8, 5, 8, 0), SRL(8, 11, 8, 0),
+    //process lower bits
+    LI(9, 1, 0), ADD(9, 5, 9, 0), AND(9, 10, 9, 0),
+    //math logig.
+    SRL(9, 12, 9, 0), ADD(9, 13, 9, 0),
+    //put them together
+    ADD(8, 9, 5, 0),
+
+
     STOREQI(3, 0), END(0)
   });
 
