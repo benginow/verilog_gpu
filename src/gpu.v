@@ -19,7 +19,7 @@ module gpu(input               clk,
    wire [255:0]              t_ret_regs;
    wire [15:0]               t_size;
    wire                      t_err;
-   queue transformation(clk, 
+   queue transformation(clk,
                         t_reading, t_ret_regs,
                         t_adding, global_add_regs,
                         t_size, t_err);
@@ -30,7 +30,7 @@ module gpu(input               clk,
    reg [255:0]               l_add_regs;
    wire                      l_err;
    wire [15:0]               l_size;
-   queue lighting(clk, 
+   queue lighting(clk,
                   l_reading, l_ret_regs,
                   l_adding, global_add_regs,
                   l_size, l_err);
@@ -41,7 +41,7 @@ module gpu(input               clk,
    reg [255:0]               p_add_regs;
    wire                      p_err;
    wire [15:0]               p_size;
-   queue projection(clk, 
+   queue projection(clk,
                     p_reading, p_ret_regs,
                     p_adding, global_add_regs,
                     p_size, p_err);
@@ -52,7 +52,7 @@ module gpu(input               clk,
    reg [255:0]               r_add_regs;
    wire                      r_err;
    wire [15:0]               r_size;
-   queue rasterization(clk, 
+   queue rasterization(clk,
                        r_reading, r_ret_regs,
                        r_adding, global_add_regs,
                        r_size, r_err);
@@ -63,7 +63,7 @@ module gpu(input               clk,
    wire [255:0]              z_add_regs;
    wire                      z_err;
    wire [15:0]               z_size;
-   queue zbuffer_queue(clk, 
+   queue zbuffer_queue(clk,
                        z_reading, z_ret_regs,
                        z_adding, z_add_regs,
                        z_size, z_err);
