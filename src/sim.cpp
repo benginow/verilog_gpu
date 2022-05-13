@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <queue>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -8,7 +9,7 @@
 using namespace std;
 
 struct WorkData {
-  uint16_t data[16];
+  int16_t data[16];
 };
 
 class Object {
@@ -58,8 +59,8 @@ public:
       for (int j = 1; j < (int) verts.size() - 1; j++) {
         OTriangle tri;
         tri.v[0] = verts[0];
-        tri.v[1] = verts[i];
-        tri.v[2] = verts[i + 1];
+        tri.v[1] = verts[j];
+        tri.v[2] = verts[j + 1];
         triangles.push_back(tri);
       }
     }
@@ -71,20 +72,25 @@ public:
       data[i].data[0] = round(vertices[triangles[i].v[0]].x * (1 << 8));
       data[i].data[1] = round(vertices[triangles[i].v[0]].y * (1 << 8));
       data[i].data[2] = round(vertices[triangles[i].v[0]].z * (1 << 8));
-      data[i].data[3] = 0;
       data[i].data[4] = round(vertices[triangles[i].v[1]].x * (1 << 8));
       data[i].data[5] = round(vertices[triangles[i].v[1]].y * (1 << 8));
       data[i].data[6] = round(vertices[triangles[i].v[1]].z * (1 << 8));
-      data[i].data[7] = 0;
       data[i].data[8] = round(vertices[triangles[i].v[2]].x * (1 << 8));
       data[i].data[9] = round(vertices[triangles[i].v[2]].y * (1 << 8));
       data[i].data[10] = round(vertices[triangles[i].v[2]].z * (1 << 8));
+      data[i].data[3] = (data[i].data[5] - data[i].data[1]) * (data[i].data[10] - data[i].data[2]) - (data[i].data[6] - data[i].data[2]) * (data[i].data[9] - data[i].data[1]);
+      data[i].data[7] = 0;
       data[i].data[11] = 0;
-      data[i].data[12] = (1 << 15);
-      data[i].data[13] = (1 << 15);
-      data[i].data[14] = (1 << 15);
+      data[i].data[12] = 128;
+      data[i].data[13] = 128;
+      data[i].data[14] = 128;
       data[i].data[15] = 0;
+      // cout << triangles[i].v[1] << " " << triangles[i].v[2] << " " << triangles[i].v[3] << "\n";
+      // cout << data[i].data[0] << " " << data[i].data[1] << " " << data[i].data[2] << "\n";
+      // cout << data[i].data[4] << " " << data[i].data[5] << " " << data[i].data[6] << "\n";
+      // cout << data[i].data[8] << " " << data[i].data[9] << " " << data[i].data[10] << "\n";
     }
+    // cout << "got triangles\n";
     return data;
   }
 };
@@ -126,17 +132,374 @@ void writeBitmapImage(vector<vector<Pixel>> &image, string fileName) {
   fout.write((char*) &bmpInfoHeader, 40);
   size_t numberOfPixels = width * height;
   for (int i = 0; i < numberOfPixels; i++) {
-    fout.write((char*) &image[i / height][i % height], 3);
+    // Pixel pix = image[i % width][i / width];
+ // int r = pix.red, g = pix.green, b = pix.blue;
+    // if (r != 0 || g != 0 || b != 0) {
+      // cout << i % width << " " << i / width << " " << r << " " << g << " " << b << "\n";
+    // }
+    fout.write((char*) &image[i % width][i / width], 3);
   }
   fout.close();
 }
+
+// A cheap way to write an assembler with macros
+#define LDGPMEM(srcreg, tgtreg, pred) ((pred << 30) | (0 << 24) | (srcreg << 20) | (tgtreg << 16))
+#define STGPMEM(srcreg, tgtreg, pred) ((pred << 30) | (1 << 24) | (srcreg << 20) | (tgtreg << 16))
+#define MUL(src1reg, src2reg, tgtreg, pred) ((pred << 30) | (2 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtreg << 12))
+#define ADD(src1reg, src2reg, tgtreg, pred) ((pred << 30) | (3 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtreg << 12))
+#define SUB(src1reg, src2reg, tgtreg, pred) ((pred << 30) | (4 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtreg << 12))
+#define SRL(src1reg, src2, tgtreg, pred) ((pred << 30) | (5 << 24) | (src1reg << 20) | (tgtreg << 16) | (src2))
+#define SLL(src1reg, src2, tgtreg, pred) ((pred << 30) | (6 << 24) | (src1reg << 20) | (tgtreg << 16) | (src2))
+#define AND(src1reg, src2reg, tgtreg, pred) ((pred << 30) | (7 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtreg << 12))
+#define NOT(srcreg, tgtreg, pred) ((pred << 30) | (8 << 24) | (srcreg << 20) | (tgtreg << 16))
+#define XOR(src1reg, src2reg, tgtreg, pred) ((pred << 30) | (9 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtreg << 12))
+#define OR(src1reg, src2reg, tgtreg, pred) ((pred << 30) | (10 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtreg << 12))
+#define NAND(src1reg, src2reg, tgtreg, pred) ((pred << 30) | (11 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtreg << 12))
+#define LI(tgtreg, src, pred) ((pred << 30) | (12 << 24) | (tgtreg << 20) | (src))
+#define SETLT(src1reg, src2reg, tgtpredreg, pred) ((pred << 30) | (13 << 24) | (src1reg << 20) | (src2reg << 16) | (tgtpredreg << 12))
+#define STOREQ(srcreg, pred) ((pred << 30) | (14 << 24) | (srcreg << 20))
+#define STOREQI(src, pred) ((pred << 30) | (15 << 24) | (src))
+#define END(pred) ((pred << 30) | (16 << 24))
+
+class Program {
+private:
+  vector<uint32_t> ins;
+public:
+  Program(vector<uint32_t> ins): ins(ins) {}
+};
+
+Program transformation({XOR(8, 8, 8, 0), OR(0, 0, 8, 0), LI(12, 0xffff, 0), AND(8, 12, 8, 0)});
+
+/*
+Program rasterization(
+
+                      // get the current job status
+                      LI(15, 0, 0),
+                      OR(7, 7, 15, 0),
+                      LI(14, 0xffff, 0)
+                      AND(15, 14, 15, 0),
+
+                      // compare first two triangles
+                      LI(8, 0, 0),
+                      OR(0, 0, 8, 0),
+                      SRL(8, 16, 8, 0),
+                      LI(9, 0, 0),
+                      OR(2, 2, 9, 0),
+                      SRL(9, 16, 9, 0),
+                      SETLT(9, 8, 1, 0),
+                      XOR(0, 2, 0, 1),
+                      XOR(0, 2, 2, 1),
+                      XOR(0, 2, 0, 1),
+                      XOR(1, 3, 1, 1),
+                      XOR(1, 3, 3, 1),
+                      XOR(1, 3, 1, 1),
+
+                      // compare last two triangles
+                      LI(8, 0, 0),
+                      OR(2, 2, 8, 0),
+                      SRL(8, 16, 8, 0),
+                      LI(9, 0, 0),
+                      OR(4, 4, 0),
+                      SRL(9, 16, 9, 0),
+                      SETLT(9, 8, 1, 0),
+                      XOR(2, 4, 2, 1),
+                      XOR(2, 4, 4, 1),
+                      XOR(2, 4, 2, 1),
+                      XOR(3, 5, 3, 1),
+                      XOR(3, 5, 5, 1),
+                      XOR(3, 5, 3, 1),
+
+                      // compare first two triangles
+                      LI(8, 0, 0),
+                      OR(0, 0, 8, 0),
+                      SRL(8, 16, 8, 0),
+                      LI(9, 0, 0),
+                      OR(2, 2, 9, 0),
+                      SRL(9, 16, 9, 0),
+                      SETLT(9, 8, 1, 0),
+                      XOR(0, 2, 0, 1),
+                      XOR(0, 2, 2, 1),
+                      XOR(0, 2, 0, 1),
+                      XOR(1, 3, 1, 1),
+                      XOR(1, 3, 3, 1),
+                      XOR(1, 3, 1, 1),
+
+                      // check if need to split
+                      LI(8, 0, 0),
+                      OR(0, 0, 8, 0),
+                      SRL(8, 16, 8, 0),
+                      LI(9, 0, 0),
+                      OR(2, 2, 9, 0),
+                      SRL(9, 16, 9, 0),
+
+                      LI(10, 0, 0),
+                      SETLT(8, 9, 1, 0),
+                      LI(10, 1, 1),
+
+                      LI(8, 0, 0),
+                      OR(4, 4, 8, 0),
+                      SRL(8, 16, 8, 0),
+
+                      LI(11, 0, 0),
+                      SETLT(9, 8, 1, 0),
+                      LI(11, 1, 1),
+
+                      AND(10, 11, 10, 0), // r10 is true if need to split
+
+                      LI(11, 0, 0),
+                      SETLT(11, 10, 1, 0), // p1 is true if we need to split
+
+                      // if we don't need to split do something
+
+
+                      // look at the long segment
+
+                      // calculate slope
+                      LI(8, 0, 1)
+                      OR(0, 0, 8, 1)
+                      SRL(8, 16, 8, 1)
+
+
+
+                      );
+*/
 
 class Simulator {
 private:
   Object object;
   string outputFile;
+
+  struct State {
+    int x, y, z, p1, p2, dx, dy, dz, xs, ys, zs, x1, y1, z1, x2, y2, z2;
+
+    State(int x1, int y1, int z1, int x2, int y2, int z2): x1(x1), y1(y1), z1(z1), x2(x2), y2(y2), z2(z2) {
+      x = x1;
+      y = y1;
+      z = z1;
+      xs = x2 > x1 ? 1 : -1;
+      ys = y2 > y1 ? 1 : -1;
+      zs = z2 > z1 ? 1 : -1;
+      dx = abs(x1 - x2);
+      dy = abs(y1 - y2);
+      dz = abs(z1 - z2);
+
+      if (dx >= dy && dx >= dz) {
+        p1 = 2 * dy - dx;
+        p2 = 2 * dz - dx;
+      }
+      else if (dy >= dx && dy >= dz) {
+        p1 = 2 * dx - dy;
+        p2 = 2 * dz - dy;
+      }
+      else {
+        p1 = 2 * dx - dz;
+        p2 = 2 * dy - dz;
+      }
+    }
+
+    bool done() {
+      // cout << dx << " " << dy << " " << dz << " d\n";
+      if (dx >= dy && dx >= dz)
+        return x == x2;
+      else if (dy >= dx && dy >= dz)
+        return y == y2;
+      else
+        return z == z2;
+    }
+
+    void update() {
+      if (done()) return;
+      if (dx >= dy && dx >= dz) {
+        x += xs;
+        if (p1 >= 0)
+          y += ys, p1 -= 2 * dx;
+        if (p2 >= 0)
+          z += zs, p2 -= 2 * dx;
+        p1 += 2 * dy;
+        p2 += 2 * dz;
+      }
+      else if (dy >= dx && dy >= dz) {
+        y += ys;
+        if (p1 >= 0)
+          x += xs, p1 -= 2 * dy;
+        if (p2 >= 0)
+          z += zs, p2 -= 2 * dy;
+        p1 += 2 * dx;
+        p2 += 2 * dz;
+      }
+      else {
+        z += zs;
+        if (p1 >= 0)
+          x += xs, p1 -= 2 * dz;
+        if (p2 >= 0)
+          y += ys, p2 -= 2 * dz;
+        p1 += 2 * dx;
+        p2 += 2 * dy;
+      }
+    }
+
+    void shifty() {
+      int cy = y;
+      while (!done()) {
+        update();
+        if (y != cy) break;
+      }
+    }
+
+    void shiftx() {
+      int cx = x;
+      while (!done()) {
+        update();
+        if (x != cx) break;
+      }
+    }
+  };
+
+  vector<WorkData> rasterization(WorkData inp) {
+    vector<WorkData> queue;
+    WorkData res;
+    res.data[12] = inp.data[12];
+    res.data[13] = inp.data[13];
+    res.data[14] = inp.data[14];
+    res.data[15] = inp.data[15];
+    int x1 = inp.data[0], y1 = inp.data[1], z1 = inp.data[2], a1 = inp.data[3];
+    int x2 = inp.data[4], y2 = inp.data[5], z2 = inp.data[6], a2 = inp.data[7];
+    int x3 = inp.data[8], y3 = inp.data[9], z3 = inp.data[10], a3 = inp.data[11];
+
+    if (y2 < y1) swap(x1, x2), swap(y1, y2), swap(z1, z2), swap(a1, a2);
+    if (y3 < y2) swap(x2, x3), swap(y2, y3), swap(z2, z3), swap(a2, a3);
+    if (y2 < y1) swap(x1, x2), swap(y1, y2), swap(z1, z2), swap(a1, a2);
+
+    cout << x1 << " " << y1 << " " << z1 << " " << x2 << " " << y2 << "  " << z2 << "\n" ;
+
+    State s1(x1, y1, z1, x2, y2, z2), s2(x1, y1, z1, x3, y3, z3);
+
+    while (true) {
+      State s3(s1.x, s1.y, s1.z, s2.x, s2.y, s2.z);
+
+      // cout << s1.x << " " << s1.y << " " << s1.z << "\n";
+
+      while (true) {
+        WorkData next = res;
+        next.data[0] = s3.x, next.data[1] = s3.y, next.data[2] = s3.z;
+        queue.push_back(next);
+        if (s3.done()) break;
+        s3.shiftx();
+      }
+
+      // cout << s1.done() << " " << s2.done() << "\n";
+      if (s1.done() || s2.done()) break;
+      s1.shifty(); s2.shifty();
+    }
+
+    if (!s2.done()) swap(s1, s2);
+    if (s1.done()) return queue;
+
+    s2 = State(x2, y2, z2, x3, y3, z3);
+    s1.shifty(); s2.shifty();
+    while (true) {
+      State s3(s1.x, s1.y, s1.z, s2.x, s2.y, s2.z);
+
+      while (true) {
+        WorkData next = res;
+        next.data[0] = s3.x, next.data[1] = s3.y, next.data[2] = s3.z;
+        queue.push_back(next);
+        if (s3.done()) break;
+        s3.shiftx();
+      }
+
+      if (s1.done() || s2.done()) break;
+      s1.shifty(); s2.shifty();
+    }
+    return queue;
+  }
+
+  WorkData transformation(WorkData inp) {
+    inp.data[0] += 1024;
+    inp.data[1] += 512;
+    inp.data[4] += 1024;
+    inp.data[5] += 512;
+    inp.data[8] += 1024;
+    inp.data[9] += 512;
+    return inp;
+  }
+
+  WorkData lighting(WorkData inp) {
+    return inp;
+  }
+
+  WorkData projection(WorkData inp) {
+    int screenWidth = 2, screenHeight = 2, screenDepth = 2;
+    inp.data[0] = (((inp.data[0] / 4) + 1) / 2) * screenWidth;
+    inp.data[1] = (((inp.data[1] / 4) + 1) / 2) * screenHeight;
+    inp.data[2] = (((inp.data[2] / 4) + 1) / 2) * screenDepth;
+    inp.data[4] = (((inp.data[4] / 4) + 1) / 2) * screenWidth;
+    inp.data[5] = (((inp.data[5] / 4) + 1) / 2) * screenHeight;
+    inp.data[6] = (((inp.data[6] / 4) + 1) / 2) * screenDepth;
+    inp.data[8] = (((inp.data[8] / 4) + 1) / 2) * screenWidth;
+    inp.data[9] = (((inp.data[9] / 4) + 1) / 2) * screenHeight;
+    inp.data[10] = (((inp.data[10] / 4) + 1) / 2) * screenDepth;
+    return inp;
+  }
 public:
-  Simulator(string inputFile, string outputFile): object(inputFile), outputFile(outputFile) {
+  Simulator(string inputFile, string outputFile): object(inputFile), outputFile(outputFile) {}
+
+  void softwareRun() {
+    vector<vector<int>> zbuffer(640, vector<int>(480, 256));
+    vector<vector<Pixel>> image(640, vector<Pixel>(480, Pixel(0, 0, 0)));
+    vector<WorkData> q1 = object.getTriangles();
+    queue<WorkData> q2, q3, q4, q5;
+    while (true) {
+      if (!q5.empty()) {
+        // cout << "z-buffer\n";
+        WorkData t = q5.front(); q5.pop();
+        int x = t.data[0], y = t.data[1], z = t.data[2];
+        // x >>= 8;
+        // y >>= 8;
+        // cout << x << " " << y << " " << z << "\n";
+        if (x >= 0 && y >= 0 && x < 640 && y < 480) {
+          if (z >= 0 && z < zbuffer[x][y]) {
+            zbuffer[x][y] = z;
+            image[x][y] = Pixel(t.data[12], t.data[13], t.data[14]);
+            // cout << "pixel " << x << " " << y << " " << t.data[12] << " " << t.data[13] << " " << t.data[14] << "\n";
+          }
+        }
+      }
+      else if (!q4.empty()) {
+        // cout << "rasterization\n";
+        vector<WorkData> next = rasterization(q4.front()); q4.pop();
+        for (auto n : next) q5.push(n);
+      }
+      else if (!q3.empty()) {
+        // cout << "projection\n";
+        WorkData next = projection(q3.front()); q3.pop();
+        // cout << next.data[0] << " " << next.data[1] << " " << next.data[2] << "\n";
+        // cout << next.data[4] << " " << next.data[5] << " " << next.data[6] << "\n";
+        // cout << next.data[8] << " " << next.data[9] << " " << next.data[10] << "\n";
+        // cout << next.data[12] << " " << next.data[13] << " " << next.data[14] << "\n";
+        q4.push(next);
+      }
+      else if (!q2.empty()) {
+        // cout << "lighting\n";
+        WorkData next = lighting(q2.front()); q2.pop();
+        // cout << next.data[0] << " " << next.data[1] << " " << next.data[2] << "\n";
+        // cout << next.data[4] << " " << next.data[5] << " " << next.data[6] << "\n";
+        // cout << next.data[8] << " " << next.data[9] << " " << next.data[10] << "\n";
+        // cout << next.data[12] << " " << next.data[13] << " " << next.data[14] << "\n";
+        q3.push(next);
+      }
+      else if (!q1.empty()) {
+        // cout << "transformation\n";
+        auto next = q1.back();
+        // cout << next.data[0] << " " << next.data[1] << " " << next.data[2] << "\n";
+        // cout << next.data[4] << " " << next.data[5] << " " << next.data[6] << "\n";
+        // cout << next.data[8] << " " << next.data[9] << " " << next.data[10] << "\n";
+        // cout << next.data[12] << " " << next.data[13] << " " << next.data[14] << "\n";
+        q2.push(transformation(q1.back())); q1.pop_back();
+      }
+      else break;
+    }
+    writeBitmapImage(image, outputFile);
   }
 
   void run() {
@@ -151,7 +514,7 @@ public:
       gpu->clk = 1;
       gpu->eval();
 
-      Pixel &pixel = image[idx / 480][idx % 480];
+      Pixel &pixel = image[gpu->counterX][gpu->counterY];
       pixel.red = ((gpu->pixel & 0xff0000) >> 16);
       pixel.green = ((gpu->pixel & 0xff00) >> 8);
       pixel.blue = (gpu->pixel & 0xff);
@@ -163,77 +526,6 @@ public:
   }
 };
 
-/*
-#include <fcntl.h>
-#include <stdlib.h>
-#include "Vvgademo.h"
-#include "verilated.h"
-
-#define LOG(...) fprintf(stderr, __VA_ARGS__)
-
-const uint32_t MAX_SIMULATION_TIME = 1024;
-
-bool needDump = false;
-bool old_vsync = true;
-
-int main(int argc, char *argv[]) {
-    LOG(" [+] starting VGA simulation\n");
-    uint64_t tickcount = 0;
-
-    Vmain* gpu = new Vmain;
-
-    uint8_t image[801*526*3];
-    memset(image, 'A', sizeof(image));
-
-    uint32_t idx = 0;
-
-    unsigned int count_image = 0;
-
-    for ()
-    for ( ; count_image < 10; ) {
-        if (tickcount > 10) {
-        }
-        gpu->clk = 0;
-        gpu->eval();
-
-        gpu->clk = 1;
-        gpu->eval();
-        needDump = (!old_vsync && vga->vsync_out);
-
-        if (needDump) {
-            char filename[64];
-            snprintf(filename, 63, "frames/frame-%08d.bmp", count_image++);
-            LOG(" [-> dumping frame %s at idx %d]\n", filename, idx);
-            int fd = creat(filename, S_IRUSR | S_IWUSR);
-
-            if (fd < 0) {
-                perror("opening file for frame");
-                break;
-            }
-
-            char header[] = "P6\n801 526\n255\n"; // [7]
-
-            write(fd, header, sizeof(header));
-            write(fd, image, sizeof(image));
-
-            close(fd);
-
-            idx = 0;
-        }
-
-        image[idx++] = ((vga->pixel & 1) * 0xff);        // [8]
-        image[idx++] = ((vga->pixel & 2) >> 1) * 0xff;
-        image[idx++] = ((vga->pixel & 4) >> 2) * 0xff;
-
-        old_vsync = vga->vsync_out;
-
-        tickcount++;
-    }
-
-    return EXIT_SUCCESS;
-}
-*/
-
 int main(int argc, char *argv[]) {
   if (argc != 3) {
     cout << "Usage: ./demo object.off output.bmp\n";
@@ -243,7 +535,7 @@ int main(int argc, char *argv[]) {
   string outputFile = string(argv[2]);
 
   Simulator sim(inputFile, outputFile);
-  sim.run();
+  sim.softwareRun();
 
   return 0;
 }
