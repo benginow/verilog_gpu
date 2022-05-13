@@ -189,7 +189,7 @@ Program transformationProgram({
     SLL(8, 16, 8, 0), ADD(8, 9, 4, 0),
     STOREQI(1, 0), END(0)});
 Program lightingProgram({
-  LI(10, 16, 0),
+  LI(10, 0xFFFF, 0),
   LI(11, 7, 0),
   LI(12, 11, 0),
 
@@ -201,7 +201,7 @@ Program lightingProgram({
   LI(14, 0, 0),
   ADD(14, 1, 14, 0),
   //shift down
-  SRL(14, 10, 14, 0),
+  SRL(14, 16, 14, 0),
   MUL(14, 11, 14, 0),
   ADD(14, 13, 13, 0),
 
@@ -209,7 +209,7 @@ Program lightingProgram({
   LI(14, 0, 0),
   ADD(14, 3, 14, 0),
   //take top bits
-  SRL(14, 10, 14, 0),
+  SRL(14, 16, 14, 0),
   //multiply by 3
   MUL(14, 11, 14, 0),
   //add to reg 13
@@ -219,11 +219,17 @@ Program lightingProgram({
   LI(14, 0, 0),
   ADD(14, 5, 14, 0),
   //take top bits
-  SRL(14, 10, 14, 0),
+  SRL(14, 16, 14, 0),
   //multiply by 3
   MUL(14, 11, 14, 0),
   //add to reg 13
   ADD(14, 13, 13, 0),
+
+  //if dot is less than 0, then we set to 0.
+  LI(14, 0, 0),
+  SETLT(14, 0, 1, 0),
+  LI(14, 0, 1),
+
 
   //inp.data[12] *= dot;
   //inp.data[12] >>= 8;
@@ -231,6 +237,32 @@ Program lightingProgram({
   //inp.data[13] >>= 8;
   LI(14, 0, 0),
   ADD(14, 6, 14, 0),
+  AND(14, 10, 14, 0),
+  MUL(14, 13, 14, 0),
+  SRL(14, 8, 14),
+  
+  LI(15, 0, 0),
+  ADD(15, 6, 15, 0),
+  SRL(15, 16, 15, 0),
+  MUL(15, 13, 15, 0),
+  SRL(15, 8, 15, 0),
+  SLL(15, 16, 15, 0),
+
+  ADD(14, 15, 6, 0),
+  //14 and 15
+  LI(14, 0, 0),
+  ADD(14, 7, 14, 0),
+  AND(14, 10, 14, 0),
+  MUL(14, 13, 14, 0),
+  SRL(14, 8, 14),
+  
+  LI(15, 0, 0),
+  ADD(15, 7, 15, 0),
+  SRL(15, 16, 15, 0),
+  SLL(15, 16, 15, 0),
+
+  ADD(14, 15, 7, 0),
+
   //zero out top bits
   
   STOREQI(2, 0), END(0)});
