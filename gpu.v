@@ -1,16 +1,16 @@
+begin gpu(      input               clk,
+                input [15:0]        t_pc,
+                input [15:0]        l_pc,
+                input [15:0]        p_pc,
+                output              rasterization_flag,
+                output [255:0]      r_ret_regs,
+                output reg [2:0]    pixel,
+                output              terminated
+                output reg [9:0]    counterX,
+                output reg [9:0]    counterY
+        );
 
-begin gpu(      input            clk,
-                input [15:0]     t_pc,
-                input [15:0]     l_pc,
-                input [15:0]     p_pc,
-                output           rasterization_flag,
-                output [255:0]   r_ret_regs,
-                output reg [2:0] pixel,
-                output           terminated
-                output reg [9:0]  counterX,
-                output reg [9:0]  counterY );
 
-//will be set to one when there is no longer anything to schedule on the queues
 reg terminated = 0;
 
 //QUEUES ______________________________________________________________________
@@ -23,8 +23,7 @@ wire t_err;
 queue transformation(clk, 
                     t_reading, t_ret_regs,
                     t_adding, t_add_regs,
-                    t_size, t_err
-                        );
+                    t_size, t_err);
 
 wire l_reading;
 wire l_adding;
@@ -81,7 +80,7 @@ mem instr_mem(clk, pc, read_instr_mem_addr,
                 null0, null1,
                 null2, null3, null4);
 
-//REGISTERS ____________________________________________________________________
+//REGISTERS __________________________________________________________
 reg[3:0] queue_read;
 wire[255:0] current_regs;
 reg[255:0] writing_regs;
@@ -97,7 +96,7 @@ reg curr_regs(clk, readreg0, reg0_output,
                     queue_wen, current_regs
                     );
 
-// PROCESSOR ____________________________________________________________________
+// PROCESSOR __________________________________________________________
 wire[15:0] pc;
 
 wire[15:0] read_instr_mem_addr;
@@ -148,76 +147,19 @@ processor proc1(clk,
                 request_new_pc, new_pc, idling
                 );
 
-   //zbuffer and framebuffer -- still need to implement these
+//QUEUE ADDITION LOGIC________________________________________________________________
 
-
-//QUEUE ADDITION LOGIC________________________________________________________________________
-reg[255:0] register_holder;
-//if the processor is asking for more work(pointed out in the idle object), then 
-reg writing_regs;
-wire[255:0] queue_regs;
-reg[3:0] queue_num;
-//write to the queue
-reg written_to_queue_flag;
 always @(posedge clk) begin
-    if (queue_wen) begin
-        writing_regs <= current_regs; 
-        //MAKE SURE TO LOOK AT WHEN QUEUE BIT IS ENABLED
-        written_to_queue_flag <= queue_wen ? 1 : 0;
-        t_add_regs <= (queue_num == 0 && !written_to_queue_flag)  
-        if (queue_num == 0) begin
-            //TODO: reset this to one after a cycle
-            t_adding <= 1;
-            t_add_regs <= current_regs;
-        end
-        if (queue_num == 1) begin
-            l_adding <= 1;
-            l_add_regs <= current_regs;
-        end
-        if (queue_num == 2) begin
-            p_adding <= 1;
-            p_add_regs <= current_regs;
-        end
-        if (queue_num == 3) begin
-            r_adding <= 1;
-            r_add_regs <= current_regs;
-        end
-        if (queue_num == 4) begin
-            z_adding <= 1;
-            z_add_regs <= current_regs;
-        end
-    end 
+
+end
+
+always @(posedge clk) begin
+
 end
 
 //QUEUE SCHEDULING LOGIC_________________________________________________________
 always @(posedge clk) begin
-    //MAKE SURE THAT REQUEST NEW PC WORKS CORRECTLY
-    //YOU REQUEST REGS FROM QUEUE WHILE IDLING
-    //THIS WHOLE SEQUENCE NEEDS TO BE FIXED
-    //NEED TO BE IDLING WHEN 
-    idling <= request_new_pc ? 2 : 
-                (idling != 0) ? idling - 1 : 0;
-    //FIX THIS
-    requesting_regs_from_queue <= idling ? 1 : 0;
-    writing_regs <= requesting_regs_from_queue ? 1 : 0;
-    if (request_new_pc) begin
-        //the buffer queue will process itself, so we don't check size of buffer queue
-        if (r_size >= p_size && r_size != 0) begin
-            new_pc <= 
-        end
-        else if (p_size >= l_size && p_size != 0) begin
-            new_pc <= 
-        end
-        else if (l_size >= t_size && l_size != 0) begin
-            new_pc <= 
-        end
-        else if (t_size != 0) begin
-            new_pc <= 
-        end
-        else begin
-            terminated <= 1;
-        end
-    end
+    
 end
 
 //Z-BUFFER QUEUE LOGIC____________________________________________________________
