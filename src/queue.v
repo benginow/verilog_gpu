@@ -1,7 +1,7 @@
 //inputs: reading = am i reading from the queue right now
 //        adding = am i adding to the queue
 //outputs: removed register set          
-begin queue(
+module queue(
     input clk,
     //TODO: rename things!
     input reading, output[255:0] returned_registers,

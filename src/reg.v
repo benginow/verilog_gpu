@@ -1,7 +1,7 @@
 // registers
 //you can read six registers at a time, so saving registers in the work queue takes four cycles (the last four are reserved for work queue reading, sorry for lazy design)
 
-begin reg(input clk
+module reg(input clk
             input[3:0] rin0, output[15:0] rout0,
             input[3:0] rin1, output[15:0] rout1,
             input wen0, input[3:0] win0, input[15:0] wdata0
