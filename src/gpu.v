@@ -105,7 +105,7 @@ module gpu(input               clk,
    wire [255:0]              current_regs;
    reg                       writing_regs;
    reg [255:0]               queue_regs;
-   reg                       curr_regs(clk, readreg0, reg0_output, 
+   regs                       curr_regs(clk, readreg0, reg0_output, 
                                        readreg1, reg1_output,
                                        reg_wen, reg_waddr, reg_wval,
 
