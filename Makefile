@@ -5,5 +5,5 @@ clean:
 
 sim:
 	verilator -Isrc --trace -cc src/gpu.v --exe src/sim.cpp
-	LIBS=-lSDL2 make -C obj_dir -j 8 -f Vgpu.mk Vgpu
+	make -C obj_dir -j 8 -f Vgpu.mk Vgpu
 	cp obj_dir/Vgpu sim
