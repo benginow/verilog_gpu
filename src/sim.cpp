@@ -159,7 +159,52 @@ public:
 };
 
 Program transformationProgram({STOREQI(1, 0), END(0)});
-Program lightingProgram({STOREQI(2, 0), END(0)});
+Program lightingProgram({
+  LI(10, 16, 0),
+  LI(11, 7, 0),
+  LI(12, 11, 0),
+
+  //save dot in reg 13
+  LI(13, 0, 0),
+  //do math in reg 14
+
+  //MATH FOR 3
+  LI(14, 0, 0),
+  ADD(14, 1, 14, 0),
+  //shift down
+  SRL(14, 10, 14, 0),
+  MUL(14, 11, 14, 0),
+  ADD(14, 13, 13, 0),
+
+  //MATH FOR 7
+  LI(14, 0, 0),
+  ADD(14, 3, 14, 0),
+  //take top bits
+  SRL(14, 10, 14, 0),
+  //multiply by 3
+  MUL(14, 11, 14, 0),
+  //add to reg 13
+  ADD(14, 13, 13, 0),
+
+  //MATH FOR 11
+  LI(14, 0, 0),
+  ADD(14, 5, 14, 0),
+  //take top bits
+  SRL(14, 10, 14, 0),
+  //multiply by 3
+  MUL(14, 11, 14, 0),
+  //add to reg 13
+  ADD(14, 13, 13, 0),
+
+  //inp.data[12] *= dot;
+  //inp.data[12] >>= 8;
+  //inp.data[13] *= dot;
+  //inp.data[13] >>= 8;
+  LI(14, 0, 0),
+  ADD(14, 6, 14, 0),
+  //zero out top bits
+  
+  STOREQI(2, 0), END(0)});
 Program projectionProgram({
     // LI(7, 0, 0),
     //set reg 10
@@ -233,7 +278,6 @@ Program projectionProgram({
     SRL(9, 12, 9, 0), ADD(9, 13, 9, 0),
     //put them together
     ADD(8, 9, 5, 0),
-
 
     STOREQI(3, 0), END(0)
   });
