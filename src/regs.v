@@ -55,7 +55,6 @@ module regs(input clk,
         if (wpreden) begin
             pred[wpred] = wpredvalue;
         end
-        
 
     end
 
