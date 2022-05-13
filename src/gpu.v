@@ -149,10 +149,15 @@ processor proc1(clk,
 
 //QUEUE ADDITION LOGIC________________________________________________________________
 
-always @(posedge clk) begin
+reg[2:0] queue_stage = 0;
+reg[255:0] queue_registers;
 
+//read registers
+always @(posedge clk) begin
+        
 end
 
+//write registers to queue
 always @(posedge clk) begin
 
 end
