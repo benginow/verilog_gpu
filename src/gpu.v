@@ -206,10 +206,10 @@ module gpu(input               clk,
       end
    end
 
-   wire                      should_r_reading = (request_new_pc && (r_size > 0) ? 1 : 0);
-   wire should_p_reading = (request_new_pc && (p_size > 0) && (r_size == 0) ? 1 : 0);
-   wire should_l_reading = (request_new_pc && (l_size > 0) && (r_size == 0) && (p_size == 0) ? 1 : 0);
-   wire should_t_reading = (request_new_pc && (t_size > 0) && (r_size == 0) && (p_size == 0) && (l_size == 0) ? 1 : 0);
+   wire                      should_r_reading = (request_new_pc && (r_size > 0) && (z_size == 0) ? 1 : 0);
+   wire should_p_reading = (request_new_pc && (p_size > 0) && (r_size == 0) && (z_size == 0) ? 1 : 0);
+   wire should_l_reading = (request_new_pc && (l_size > 0) && (r_size == 0) && (p_size == 0) && (z_size == 0) ? 1 : 0);
+   wire should_t_reading = (request_new_pc && (t_size > 0) && (r_size == 0) && (p_size == 0) && (l_size == 0) && (z_size == 0) ? 1 : 0);
 
    assign p_reading = should_p_reading && scheduling_stage == 0;
    assign l_reading = should_l_reading && scheduling_stage == 0;
