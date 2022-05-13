@@ -70,18 +70,27 @@ public:
   vector<WorkData> getTriangles() {
     vector<WorkData> data(triangles.size());
     for (int i = 0; i < (int) triangles.size(); i++) {
-      data[i].data[0] = round(vertices[triangles[i].v[0]].x * (1 << 8));
-      data[i].data[1] = round(vertices[triangles[i].v[0]].y * (1 << 8));
-      data[i].data[2] = round(vertices[triangles[i].v[0]].z * (1 << 8));
-      data[i].data[4] = round(vertices[triangles[i].v[1]].x * (1 << 8));
-      data[i].data[5] = round(vertices[triangles[i].v[1]].y * (1 << 8));
-      data[i].data[6] = round(vertices[triangles[i].v[1]].z * (1 << 8));
-      data[i].data[8] = round(vertices[triangles[i].v[2]].x * (1 << 8));
-      data[i].data[9] = round(vertices[triangles[i].v[2]].y * (1 << 8));
-      data[i].data[10] = round(vertices[triangles[i].v[2]].z * (1 << 8));
-      data[i].data[3] = (data[i].data[5] - data[i].data[1]) * (data[i].data[10] - data[i].data[2]) - (data[i].data[6] - data[i].data[2]) * (data[i].data[9] - data[i].data[1]);
-      data[i].data[7] = 0;
-      data[i].data[11] = 0;
+      auto v1 = vertices[triangles[i].v[0]], v2 = vertices[triangles[i].v[1]], v3 = vertices[triangles[i].v[2]];
+      data[i].data[0] = round(v1.x * (1 << 8));
+      data[i].data[1] = round(v1.y * (1 << 8));
+      data[i].data[2] = round(v1.z * (1 << 8));
+      data[i].data[4] = round(v2.x * (1 << 8));
+      data[i].data[5] = round(v2.y * (1 << 8));
+      data[i].data[6] = round(v2.z * (1 << 8));
+      data[i].data[8] = round(v3.x * (1 << 8));
+      data[i].data[9] = round(v3.y * (1 << 8));
+      data[i].data[10] = round(v3.z * (1 << 8));
+      OVertex a{v2.x - v1.x, v2.y - v1.y, v2.z - v1.z}, b{v3.x - v1.x, v3.y - v1.y, v3.z - v1.z};
+      OVertex n{a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+      double norm = sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
+      if (norm != 0) {
+        n.x /= norm;
+        n.y /= norm;
+        n.z /= norm;
+      }
+      data[i].data[3] = round(n.x * 256);
+      data[i].data[7] = round(n.y * 256);
+      data[i].data[11] = round(n.z * 256);
       data[i].data[12] = 128;
       data[i].data[13] = 128;
       data[i].data[14] = 128;
@@ -326,6 +335,17 @@ private:
   }
 
   WorkData lighting(WorkData inp) {
+    // double lx = sqrt(1.0 / 6), ly = sqrt(1.0 / 6), lz = sqrt(1.0 / 2);
+    // int x = round(lx * 16), y = round(ly * 16), z = round(lz * 16);
+    // cout << x << " " << y << " " << z << "\n";
+    auto dot = (inp.data[3] / 16) * 7 + (inp.data[7] / 16) * 7 - (inp.data[11] / 16) * 11;
+    if (dot < 0) dot = 0;
+    inp.data[12] *= dot;
+    inp.data[12] >>= 8;
+    inp.data[13] *= dot;
+    inp.data[13] >>= 8;
+    inp.data[14] *= dot;
+    inp.data[14] >>= 8;
     return inp;
   }
 
@@ -410,16 +430,20 @@ private:
       gpu->gpu__DOT__rasterization__DOT__size_ -= 1;
       gpu->gpu__DOT__rasterization__DOT__front += 1;
 
-      for (int i = 0; i < 16; i++) cout << data.data[i] << " ";
-      cout << "\n";
+      // for (int i = 0; i < 16; i++) cout << data.data[i] << " ";
+      // cout << "\n";
 
       vector<WorkData> next = rasterization(data);
+      int large = 0;
       for (WorkData unit : next) {
         for (int j = 0; j < 8; j++)
           gpu->gpu__DOT__zbuffer_queue__DOT__data[gpu->gpu__DOT__zbuffer_queue__DOT__back][8 - j - 1] = (unit.data[2 * j] << 16) + unit.data[2 * j + 1];
         gpu->gpu__DOT__zbuffer_queue__DOT__back += 1;
         gpu->gpu__DOT__zbuffer_queue__DOT__size_ += 1;
+        large = max(large, (int) gpu->gpu__DOT__zbuffer_queue__DOT__size_);
       }
+      if (large >= 30000)
+        cout << large << "\n";
 
     }
   }
@@ -499,7 +523,7 @@ int main(int argc, char *argv[]) {
   string outputFile = string(argv[2]);
 
   Simulator sim(inputFile, outputFile);
-  sim.run();
+  sim.softwareRun();
 
   return 0;
 }
