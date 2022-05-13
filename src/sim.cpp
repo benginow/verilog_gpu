@@ -4,8 +4,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "Vvgademo.h"
+#include "Vgpu.h"
 #include "verilated.h"
+#include "verilated_vcd_c.h"
 using namespace std;
 
 struct WorkData {
@@ -441,61 +442,49 @@ private:
     inp.data[10] = (((inp.data[10] / 4) + 1) / 2) * screenDepth;
     return inp;
   }
+
+  queue<WorkData> getZBufferQueue() {
+    vector<WorkData> q1 = object.getTriangles();
+    queue<WorkData> q2, q3, q4, q5;
+    while (true) {
+      if (!q4.empty()) {
+        vector<WorkData> next = rasterization(q4.front()); q4.pop();
+        for (auto n : next) q5.push(n);
+      }
+      else if (!q3.empty()) {
+        WorkData next = projection(q3.front()); q3.pop();
+        q4.push(next);
+      }
+      else if (!q2.empty()) {
+        WorkData next = lighting(q2.front()); q2.pop();
+        q3.push(next);
+      }
+      else if (!q1.empty()) {
+        auto next = q1.back();
+        q2.push(transformation(q1.back())); q1.pop_back();
+      }
+      else break;
+    }
+    return q5;
+  }
+
 public:
   Simulator(string inputFile, string outputFile): object(inputFile), outputFile(outputFile) {}
 
   void softwareRun() {
     vector<vector<int>> zbuffer(640, vector<int>(480, 256));
     vector<vector<Pixel>> image(640, vector<Pixel>(480, Pixel(0, 0, 0)));
-    vector<WorkData> q1 = object.getTriangles();
-    queue<WorkData> q2, q3, q4, q5;
+    queue<WorkData> q5 = getZBufferQueue();
     while (true) {
       if (!q5.empty()) {
-        // cout << "z-buffer\n";
         WorkData t = q5.front(); q5.pop();
         int x = t.data[0], y = t.data[1], z = t.data[2];
-        // x >>= 8;
-        // y >>= 8;
-        // cout << x << " " << y << " " << z << "\n";
         if (x >= 0 && y >= 0 && x < 640 && y < 480) {
           if (z >= 0 && z < zbuffer[x][y]) {
             zbuffer[x][y] = z;
             image[x][y] = Pixel(t.data[12], t.data[13], t.data[14]);
-            // cout << "pixel " << x << " " << y << " " << t.data[12] << " " << t.data[13] << " " << t.data[14] << "\n";
           }
         }
-      }
-      else if (!q4.empty()) {
-        // cout << "rasterization\n";
-        vector<WorkData> next = rasterization(q4.front()); q4.pop();
-        for (auto n : next) q5.push(n);
-      }
-      else if (!q3.empty()) {
-        // cout << "projection\n";
-        WorkData next = projection(q3.front()); q3.pop();
-        // cout << next.data[0] << " " << next.data[1] << " " << next.data[2] << "\n";
-        // cout << next.data[4] << " " << next.data[5] << " " << next.data[6] << "\n";
-        // cout << next.data[8] << " " << next.data[9] << " " << next.data[10] << "\n";
-        // cout << next.data[12] << " " << next.data[13] << " " << next.data[14] << "\n";
-        q4.push(next);
-      }
-      else if (!q2.empty()) {
-        // cout << "lighting\n";
-        WorkData next = lighting(q2.front()); q2.pop();
-        // cout << next.data[0] << " " << next.data[1] << " " << next.data[2] << "\n";
-        // cout << next.data[4] << " " << next.data[5] << " " << next.data[6] << "\n";
-        // cout << next.data[8] << " " << next.data[9] << " " << next.data[10] << "\n";
-        // cout << next.data[12] << " " << next.data[13] << " " << next.data[14] << "\n";
-        q3.push(next);
-      }
-      else if (!q1.empty()) {
-        // cout << "transformation\n";
-        auto next = q1.back();
-        // cout << next.data[0] << " " << next.data[1] << " " << next.data[2] << "\n";
-        // cout << next.data[4] << " " << next.data[5] << " " << next.data[6] << "\n";
-        // cout << next.data[8] << " " << next.data[9] << " " << next.data[10] << "\n";
-        // cout << next.data[12] << " " << next.data[13] << " " << next.data[14] << "\n";
-        q2.push(transformation(q1.back())); q1.pop_back();
       }
       else break;
     }
@@ -504,15 +493,52 @@ public:
 
   void run() {
     vector<vector<Pixel>> image(640, vector<Pixel>(480, Pixel(0, 0, 0)));
-    Vvgademo* gpu = new Vvgademo;
+
+    Verilated::traceEverOn(true);
+    Vgpu* gpu = new Vgpu;
+    VerilatedVcdC *m_trace = new VerilatedVcdC;
+    gpu->trace(m_trace, 5);
+    m_trace->open("waveform.vcd");
+
+    gpu->clk = 0;
+    gpu->eval();
+
+    queue<WorkData> zbuffer = getZBufferQueue();
+    int size = zbuffer.size();
+    gpu->gpu__DOT__zbuffer_queue__DOT__front = 0;
+    gpu->gpu__DOT__zbuffer_queue__DOT__back = size;
+    gpu->gpu__DOT__zbuffer_queue__DOT__size_ = size;
+    for (int i = 0; i < size; i++) {
+      auto item = zbuffer.front(); zbuffer.pop();
+      for (int j = 0; j < 8; j++) {
+        gpu->gpu__DOT__zbuffer_queue__DOT__data[i][8 - j - 1] = (item.data[2 * j] << 16) + item.data[2 * j + 1];
+      }
+      if (i == 0) {
+        for (int j = 0; j < 16; j++) {
+          cout << item.data[j] << " ";
+        }
+        cout << "\n";
+        for (int j = 0; j < 8; j++) {
+          cout << gpu->gpu__DOT__zbuffer_queue__DOT__data[i][j] << " ";
+        }
+        cout << "\n";
+      }
+    }
 
     uint32_t idx = 0;
 
-    while ((uint32_t) gpu->done != 1) {
+    while ((uint32_t) gpu->terminated != 1 && idx < 10000000) {
       gpu->clk = 0;
       gpu->eval();
+
+      m_trace->dump((idx + 1) * 10 - 2);
+
       gpu->clk = 1;
       gpu->eval();
+
+      m_trace->dump((idx + 1) * 10);
+      gpu->gpu__DOT__zbuffer_queue__DOT__back = size;
+
 
       Pixel &pixel = image[gpu->counterX][gpu->counterY];
       pixel.red = ((gpu->pixel & 0xff0000) >> 16);
@@ -521,6 +547,9 @@ public:
 
       idx++;
     }
+
+    m_trace->close();
+    delete gpu;
 
     writeBitmapImage(image, outputFile);
   }
@@ -535,7 +564,7 @@ int main(int argc, char *argv[]) {
   string outputFile = string(argv[2]);
 
   Simulator sim(inputFile, outputFile);
-  sim.softwareRun();
+  sim.run();
 
   return 0;
 }

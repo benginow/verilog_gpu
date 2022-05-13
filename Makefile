@@ -4,6 +4,6 @@ clean:
 	rm -f sim
 
 sim:
-	verilator -Isrc -cc src/vgademo.v --exe src/sim.cpp
-	LIBS=-lSDL2 make -C obj_dir -j 8 -f Vvgademo.mk Vvgademo
-	cp obj_dir/Vvgademo sim
+	verilator -Isrc --trace -cc src/gpu.v --exe src/sim.cpp
+	LIBS=-lSDL2 make -C obj_dir -j 8 -f Vgpu.mk Vgpu
+	cp obj_dir/Vgpu sim

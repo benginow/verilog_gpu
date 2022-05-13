@@ -53,7 +53,7 @@ module processor(
         //decode and idle stage
         if (stage == 0) begin 
             pred <= instr[31:30];
-            optype <= instr[29]
+           optype <= instr[29];
             opcode <= instr[28:24];
             reg0 <= instr[23:20];
             reg1 <= instr[19:16];
