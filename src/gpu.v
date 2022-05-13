@@ -2,17 +2,27 @@ module gpu(input               clk,
            input [15:0]      t_pc,
            input [15:0]      l_pc,
            input [15:0]      p_pc,
-           output            rasterization_flag,
            output [255:0]    r_ret_regs,
            output reg [23:0] pixel,
            output reg [9:0]  counterX,
            output reg [9:0]  counterY,
-           output reg        terminated);
+           output            terminated);
 
-   initial terminated = 0;
+   reg                       emptied = 0;
+   reg [19:0]                term_counter = 20'hfffff;
+   always @(posedge clk) begin
+      if (should_term) begin
+         if (term_counter > 0) begin
+            term_counter <= term_counter - 1;
+         end
+      end
+   end
+
+   assign terminated = should_term && term_counter == 0;
+   wire should_term = (t_size == 0) && (l_size == 0) && (p_size == 0) && (r_size == 0) && (z_size == 0);
 
    //QUEUES ______________________________________________________________________
-   wire [255:0]               global_add_regs;
+   wire [255:0]              global_add_regs;
 
    wire                      t_reading;
    wire                      t_adding;
@@ -109,6 +119,7 @@ module gpu(input               clk,
 
 
    //REGISTERS __________________________________________________________
+
    wire [255:0]              current_regs;
    wire                      writing_regs;
    wire [255:0]              queue_regs;
@@ -121,188 +132,136 @@ module gpu(input               clk,
 
                                         writing_regs, queue_regs,
 
-                                        queue_wen, current_regs
-                                        );
+                                        queue_wen, current_regs);
 
    // PROCESSOR
-   // wire [15:0]               pc;
 
-   // wire [31:0]               read_instr_mem_addr;
+   wire [15:0]               pc;
+   wire [31:0]               read_instr_mem_addr;
 
-   // wire [3:0]                readreg0;
-   // wire [3:0]                readreg1;
-   // wire [31:0]               reg0_output;
-   // wire [31:0]               reg1_output;
-   // wire                      reg_wen;
-   // wire [3:0]                reg_waddr;
-   // wire [31:0]               reg_wval;
+   wire [3:0]                readreg0;
+   wire [3:0]                readreg1;
+   wire [31:0]               reg0_output;
+   wire [31:0]               reg1_output;
+   wire                      reg_wen;
+   wire [3:0]                reg_waddr;
+   wire [31:0]               reg_wval;
 
-   // wire [1:0]                pred;
-   // wire                      pred_val;
-   // wire                      pred_wen;
-   // wire [1:0]                pred_waddr;
-   // wire                      pred_wval;
+   wire [1:0]                pred;
+   wire                      pred_val;
+   wire                      pred_wen;
+   wire [1:0]                pred_waddr;
+   wire                      pred_wval;
 
-   // wire [15:0]               readmem0;
-   // wire [31:0]               in_mem0;
-   // wire                      mem_wen;
-   // wire [15:0]               mem_waddr;
-   // wire [31:0]               mem_wval;
+   wire [15:0]               readmem0;
+   wire [31:0]               in_mem0;
+   wire                      mem_wen;
+   wire [15:0]               mem_waddr;
+   wire [31:0]               mem_wval;
 
-   // wire                      queue_wen;
-   // wire [3:0]                queue_number;
+   wire                      queue_wen;
+   wire [3:0]                queue_number;
 
-   // wire                      request_new_pc;
-   // reg       [15:0]               new_pc;
+   assign t_adding = (queue_wen == 1 && queue_number == 0);
+   assign l_adding = (queue_wen == 1 && queue_number == 1);
+   assign p_adding = (queue_wen == 1 && queue_number == 2);
+   assign r_adding = (queue_wen == 1 && queue_number == 3);
+   assign z_adding = (queue_wen == 1 && queue_number == 4);
+   assign global_add_regs = current_regs;
 
-   // processor proc1(clk, 
+   wire                      request_new_pc;
+   wire                      set_pc;
+   wire [15:0]               new_pc;
 
-   //                 pc, read_instr_mem_addr,
+   processor proc1(clk,
+                   pc, read_instr_mem_addr,
+                   readreg0, reg0_output,
+                   readreg1, reg1_output,
+                   reg_wen, reg_waddr, reg_wval,
+                   pred, pred_val,
+                   pred_wen, pred_waddr, pred_wval,
+                   readmem0, in_mem0,
+                   mem_wen, mem_waddr, mem_wval,
+                   queue_wen, queue_number,
+                   request_new_pc, set_pc, new_pc);
 
-   //                 readreg0, reg0_output,
-   //                 readreg1, reg1_output,
-   //                 reg_wen, reg_waddr, reg_wval,
+   // SCHEDULING LOGIC ______________________________________________________
 
-   //                 pred, pred_val,
-   //                 pred_wen, pred_waddr, pred_wval,
-
-   //                 readmem0, in_mem0,
-   //                 mem_wen, mem_waddr, mem_wval,
-
-   //                 queue_wen, queue_number,
-   //                 request_new_pc, new_pc, idling
-   //                 );
-
-   //SETTING IDLING ___________________________________
-
-   //we begin in an idling state! need to wait for a program counter
-   reg [1:0]                 idling = 1;
-   reg                       pc_found;
-   reg                       queue_written;
+   reg                       scheduling_stage = 0;
+   reg                       should_p_reading_saved;
+   reg                       should_l_reading_saved;
+   reg                       should_t_reading_saved;
 
    always @(posedge clk) begin
-      //we idle when either we are adding to queue or requesting new pc (which includes removing from queue).
-
-      //need to keep idling
-      idling <= queue_wen ? 1 :
-                request_new_pc? 1 : 
-                pc_found ? 0 :
-                queue_written ? 0 : idling;
+      if (scheduling_stage == 0) begin
+         if (p_reading || l_reading || t_reading) begin
+            scheduling_stage <= 1;
+            should_p_reading_saved <= should_p_reading;
+            should_l_reading_saved <= should_l_reading;
+            should_t_reading_saved <= should_t_reading;
+         end
+      end
+      if (scheduling_stage == 1) begin
+         scheduling_stage <= 0;
+      end
    end
 
-   //QUEUE ADDITION LOGIC________________________________________________________________
+   wire                      should_r_reading = (request_new_pc && (r_size > 0) ? 1 : 0);
+   wire should_p_reading = (request_new_pc && (p_size > 0) && (r_size == 0) ? 1 : 0);
+   wire should_l_reading = (request_new_pc && (l_size > 0) && (r_size == 0) && (p_size == 0) ? 1 : 0);
+   wire should_t_reading = (request_new_pc && (t_size > 0) && (r_size == 0) && (p_size == 0) && (l_size == 0) ? 1 : 0);
 
-   reg [2:0] queue_stage = 0;
-   reg [255:0] queue_registers;
-   reg [3:0]   saved_queue_num;
+   assign p_reading = should_p_reading && scheduling_stage == 0;
+   assign l_reading = should_l_reading && scheduling_stage == 0;
+   assign t_reading = should_t_reading && scheduling_stage == 0;
 
-   //read registers then add to queue
-   always @(posedge clk) begin
+   assign queue_regs = should_p_reading_saved ? p_ret_regs :
+                       should_l_reading_saved ? l_ret_regs :
+                       should_t_reading_saved ? t_ret_regs : 0;
+   assign writing_regs = scheduling_stage == 1 && (should_p_reading_saved || should_l_reading_saved || should_t_reading_saved);
 
-      queue_stage <= queue_wen ? 1 : 0;
-      saved_queue_num <= queue_number;
-
-      //STAGE ONE
-      //if queue_wen is 1, then we have already signalled to read from registers
-      //thus, all we have to do is add to 
-      t_adding <= (queue_stage == 1 && saved_queue_num == 0) ? 1 : 0;
-      l_adding <= (queue_stage == 1 && saved_queue_num == 1) ? 1 : 0;
-      p_adding <= (queue_stage == 1 && saved_queue_num == 2) ? 1 : 0;
-      r_adding <= (queue_stage == 1 && saved_queue_num == 3) ? 1 : 0;
-      z_adding <= (queue_stage == 1 && saved_queue_num == 4) ? 1 : 0;
-      global_add_regs <= current_regs;
-
-      // STAGE TWO, DONE IDLING
-      queue_written <= (queue_stage == 0);
-   end
-
-
-   //QUEUE SCHEDULING LOGIC_________________________________________________________
-   reg [1:0] scheduling_stage = 0;
-
-   //keep in mind, we only every read for p, s, or t. r is done in our hacky way,
-   //and z buffer queue handles itself
-   always @(posedge clk) begin
-      //we are always running rasterization if we can be
-      rasterization_flag <= r_size != 0;
-
-      scheduling_stage <= request_new_pc ? 1 :
-                          scheduling_stage == 1 ? 2 : 0;
-
-      //STAGE 0
-      //read registers from queue and set new pc
-      if (request_new_pc) begin
-         new_pc <= (p_size > 0) ? p_pc :
-                   (l_size > 0) ? l_pc :
-                   (t_size > 0) ? t_pc : new_pc;
-      end 
-
-      p_reading <= (request_new_pc && (p_size > 0)) ? 1 : 0;
-      l_reading <= (request_new_pc && (p_size == 0) && (l_size > 0)) ? 1 : 0;
-      t_reading <= (request_new_pc && (p_size == 0) && (l_size == 0) && (t_size > 0)) ? 1 : 0;
-
-      //STAGE 1
-      //write registers
-      queue_regs <= p_reading ? p_ret_regs :
-                    l_reading ? l_ret_regs :
-                    t_reading ? t_ret_regs : 0;
-      writing_regs <= scheduling_stage == 1;
-
-      //takes one cycle to find the next instruction once the pc has been updated
-      pc_found <= scheduling_stage == 2;
-
-   end
+   assign set_pc = scheduling_stage == 1;
+   assign new_pc = should_p_reading_saved ? p_pc :
+                   should_l_reading_saved ? l_pc :
+                   should_t_reading_saved ? t_pc : 0;
 
 
    //Z-BUFFER QUEUE LOGIC____________________________________________________________
 
-   reg                      zbuffer_initialized = 0;
-   reg [19:0]               zbuffer_init_index = 0;
-
-   reg [2:0]                zbuffer_stage = 0;
+   reg [2:0]                 zbuffer_stage = 0;
    assign z_reading = (zbuffer_stage == 1);
 
    assign zbuffer_mem_read0 = {{4{1'b0}}, zbuffer_x} * 480 + {{4{1'b0}}, zbuffer_y};
 
-   wire                     should_write = (zbuffer_stage == 3 && zbuffer_x >= 0 && zbuffer_y >= 0 && zbuffer_x < 640 && zbuffer_y < 480 && zbuffer_z >= 0 && zbuffer_z < zbuffer_mem_out0);
-   assign zbuffer_mem_writing = (zbuffer_initialized == 0 || should_write);
-   assign zbuffer_mem_waddr = (zbuffer_initialized == 0 ? zbuffer_init_index : {{4{1'b0}}, zbuffer_x} * 480 + {{4{1'b0}}, zbuffer_y});
-   assign zbuffer_mem_wdata = (zbuffer_initialized == 0 ? 16'hffff : zbuffer_z);
+   wire                      should_write = (zbuffer_stage == 3 && zbuffer_x >= 0 && zbuffer_y >= 0 && zbuffer_x < 640 && zbuffer_y < 480 && zbuffer_z >= 0 && zbuffer_z < zbuffer_mem_out0);
+   assign zbuffer_mem_writing = should_write;
+   assign zbuffer_mem_waddr = {{4{1'b0}}, zbuffer_x} * 480 + {{4{1'b0}}, zbuffer_y};
+   assign zbuffer_mem_wdata = zbuffer_z;
    assign framebuffer_mem_writing = should_write;
    assign framebuffer_mem_waddr = zbuffer_mem_waddr;
    assign framebuffer_mem_wdata = {zbuffer_red[7:0], zbuffer_green[7:0], zbuffer_blue[7:0]};
 
-   reg [255:0]              zbuffer_data;
-   wire signed [15:0]       zbuffer_x = (zbuffer_stage == 2 ? z_ret_regs[255:240] : zbuffer_data[255:240]);
-   wire signed [15:0]       zbuffer_y = (zbuffer_stage == 2 ? z_ret_regs[239:224] : zbuffer_data[239:224]);
-   wire signed [15:0]       zbuffer_z = zbuffer_data[223:208];
-   wire [15:0]              zbuffer_red = zbuffer_data[63:48];
-   wire [15:0]              zbuffer_green = zbuffer_data[47:32];
-   wire [15:0]              zbuffer_blue = zbuffer_data[31:16];
+   reg [255:0]               zbuffer_data;
+   wire signed [15:0]        zbuffer_x = (zbuffer_stage == 2 ? z_ret_regs[255:240] : zbuffer_data[255:240]);
+   wire signed [15:0]        zbuffer_y = (zbuffer_stage == 2 ? z_ret_regs[239:224] : zbuffer_data[239:224]);
+   wire signed [15:0]        zbuffer_z = zbuffer_data[223:208];
+   wire [15:0]               zbuffer_red = zbuffer_data[63:48];
+   wire [15:0]               zbuffer_green = zbuffer_data[47:32];
+   wire [15:0]               zbuffer_blue = zbuffer_data[31:16];
 
    always @(posedge clk) begin
-      if (zbuffer_initialized) begin
-         if (zbuffer_stage == 0 && z_size > 0) begin
-            zbuffer_stage <= 1;
-         end
-         if (zbuffer_stage == 1) begin
-            zbuffer_stage <= 2;
-         end
-         if (zbuffer_stage == 2) begin
-            zbuffer_data <= z_ret_regs;
-            zbuffer_stage <= 3;
-         end
-         if (zbuffer_stage == 3) begin
-            zbuffer_stage <= 0;
-         end
+      if (zbuffer_stage == 0 && z_size > 0) begin
+        zbuffer_stage <= 1;
       end
-      else begin
-         if (zbuffer_init_index < 20'hfffff) begin
-            zbuffer_init_index <= zbuffer_init_index + 1;
-         end
-         else begin
-            zbuffer_initialized <= 1;
-         end
+      if (zbuffer_stage == 1) begin
+        zbuffer_stage <= 2;
+      end
+      if (zbuffer_stage == 2) begin
+        zbuffer_data <= z_ret_regs;
+        zbuffer_stage <= 3;
+      end
+      if (zbuffer_stage == 3) begin
+        zbuffer_stage <= 0;
       end
    end
 

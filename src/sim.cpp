@@ -86,12 +86,7 @@ public:
       data[i].data[13] = 128;
       data[i].data[14] = 128;
       data[i].data[15] = 0;
-      // cout << triangles[i].v[1] << " " << triangles[i].v[2] << " " << triangles[i].v[3] << "\n";
-      // cout << data[i].data[0] << " " << data[i].data[1] << " " << data[i].data[2] << "\n";
-      // cout << data[i].data[4] << " " << data[i].data[5] << " " << data[i].data[6] << "\n";
-      // cout << data[i].data[8] << " " << data[i].data[9] << " " << data[i].data[10] << "\n";
     }
-    // cout << "got triangles\n";
     return data;
   }
 };
@@ -133,11 +128,6 @@ void writeBitmapImage(vector<vector<Pixel>> &image, string fileName) {
   fout.write((char*) &bmpInfoHeader, 40);
   size_t numberOfPixels = width * height;
   for (int i = 0; i < numberOfPixels; i++) {
-    // Pixel pix = image[i % width][i / width];
- // int r = pix.red, g = pix.green, b = pix.blue;
-    // if (r != 0 || g != 0 || b != 0) {
-      // cout << i % width << " " << i / width << " " << r << " " << g << " " << b << "\n";
-    // }
     fout.write((char*) &image[i % width][i / width], 3);
   }
   fout.close();
@@ -163,107 +153,17 @@ void writeBitmapImage(vector<vector<Pixel>> &image, string fileName) {
 #define END(pred) ((pred << 30) | (16 << 24))
 
 class Program {
-private:
-  vector<uint32_t> ins;
 public:
+  vector<uint32_t> ins;
   Program(vector<uint32_t> ins): ins(ins) {}
 };
 
-Program transformation({XOR(8, 8, 8, 0), OR(0, 0, 8, 0), LI(12, 0xffff, 0), AND(8, 12, 8, 0)});
-
-/*
-Program rasterization(
-
-                      // get the current job status
-                      LI(15, 0, 0),
-                      OR(7, 7, 15, 0),
-                      LI(14, 0xffff, 0)
-                      AND(15, 14, 15, 0),
-
-                      // compare first two triangles
-                      LI(8, 0, 0),
-                      OR(0, 0, 8, 0),
-                      SRL(8, 16, 8, 0),
-                      LI(9, 0, 0),
-                      OR(2, 2, 9, 0),
-                      SRL(9, 16, 9, 0),
-                      SETLT(9, 8, 1, 0),
-                      XOR(0, 2, 0, 1),
-                      XOR(0, 2, 2, 1),
-                      XOR(0, 2, 0, 1),
-                      XOR(1, 3, 1, 1),
-                      XOR(1, 3, 3, 1),
-                      XOR(1, 3, 1, 1),
-
-                      // compare last two triangles
-                      LI(8, 0, 0),
-                      OR(2, 2, 8, 0),
-                      SRL(8, 16, 8, 0),
-                      LI(9, 0, 0),
-                      OR(4, 4, 0),
-                      SRL(9, 16, 9, 0),
-                      SETLT(9, 8, 1, 0),
-                      XOR(2, 4, 2, 1),
-                      XOR(2, 4, 4, 1),
-                      XOR(2, 4, 2, 1),
-                      XOR(3, 5, 3, 1),
-                      XOR(3, 5, 5, 1),
-                      XOR(3, 5, 3, 1),
-
-                      // compare first two triangles
-                      LI(8, 0, 0),
-                      OR(0, 0, 8, 0),
-                      SRL(8, 16, 8, 0),
-                      LI(9, 0, 0),
-                      OR(2, 2, 9, 0),
-                      SRL(9, 16, 9, 0),
-                      SETLT(9, 8, 1, 0),
-                      XOR(0, 2, 0, 1),
-                      XOR(0, 2, 2, 1),
-                      XOR(0, 2, 0, 1),
-                      XOR(1, 3, 1, 1),
-                      XOR(1, 3, 3, 1),
-                      XOR(1, 3, 1, 1),
-
-                      // check if need to split
-                      LI(8, 0, 0),
-                      OR(0, 0, 8, 0),
-                      SRL(8, 16, 8, 0),
-                      LI(9, 0, 0),
-                      OR(2, 2, 9, 0),
-                      SRL(9, 16, 9, 0),
-
-                      LI(10, 0, 0),
-                      SETLT(8, 9, 1, 0),
-                      LI(10, 1, 1),
-
-                      LI(8, 0, 0),
-                      OR(4, 4, 8, 0),
-                      SRL(8, 16, 8, 0),
-
-                      LI(11, 0, 0),
-                      SETLT(9, 8, 1, 0),
-                      LI(11, 1, 1),
-
-                      AND(10, 11, 10, 0), // r10 is true if need to split
-
-                      LI(11, 0, 0),
-                      SETLT(11, 10, 1, 0), // p1 is true if we need to split
-
-                      // if we don't need to split do something
-
-
-                      // look at the long segment
-
-                      // calculate slope
-                      LI(8, 0, 1)
-                      OR(0, 0, 8, 1)
-                      SRL(8, 16, 8, 1)
-
-
-
-                      );
-*/
+Program transformationProgram({STOREQI(1, 0), END(0)});
+Program lightingProgram({STOREQI(2, 0), END(0)});
+Program projectionProgram({
+    // LI(7, 0, 0),
+    STOREQI(3, 0), END(0)
+  });
 
 class Simulator {
 private:
@@ -371,7 +271,7 @@ private:
     if (y3 < y2) swap(x2, x3), swap(y2, y3), swap(z2, z3), swap(a2, a3);
     if (y2 < y1) swap(x1, x2), swap(y1, y2), swap(z1, z2), swap(a1, a2);
 
-    cout << x1 << " " << y1 << " " << z1 << " " << x2 << " " << y2 << "  " << z2 << "\n" ;
+    // cout << x1 << " " << y1 << " " << z1 << " " << x2 << " " << y2 << "  " << z2 << "\n" ;
 
     State s1(x1, y1, z1, x2, y2, z2), s2(x1, y1, z1, x3, y3, z3);
 
@@ -430,16 +330,16 @@ private:
   }
 
   WorkData projection(WorkData inp) {
-    int screenWidth = 2, screenHeight = 2, screenDepth = 2;
-    inp.data[0] = (((inp.data[0] / 4) + 1) / 2) * screenWidth;
-    inp.data[1] = (((inp.data[1] / 4) + 1) / 2) * screenHeight;
-    inp.data[2] = (((inp.data[2] / 4) + 1) / 2) * screenDepth;
-    inp.data[4] = (((inp.data[4] / 4) + 1) / 2) * screenWidth;
-    inp.data[5] = (((inp.data[5] / 4) + 1) / 2) * screenHeight;
-    inp.data[6] = (((inp.data[6] / 4) + 1) / 2) * screenDepth;
-    inp.data[8] = (((inp.data[8] / 4) + 1) / 2) * screenWidth;
-    inp.data[9] = (((inp.data[9] / 4) + 1) / 2) * screenHeight;
-    inp.data[10] = (((inp.data[10] / 4) + 1) / 2) * screenDepth;
+    int screenWidth = 1, screenHeight = 1, screenDepth = 1;
+    inp.data[0] = (((inp.data[0] / 4) + 1)) * screenWidth;
+    inp.data[1] = (((inp.data[1] / 4) + 1)) * screenHeight;
+    inp.data[2] = (((inp.data[2] / 4) + 1)) * screenDepth;
+    inp.data[4] = (((inp.data[4] / 4) + 1)) * screenWidth;
+    inp.data[5] = (((inp.data[5] / 4) + 1)) * screenHeight;
+    inp.data[6] = (((inp.data[6] / 4) + 1)) * screenDepth;
+    inp.data[8] = (((inp.data[8] / 4) + 1)) * screenWidth;
+    inp.data[9] = (((inp.data[9] / 4) + 1)) * screenHeight;
+    inp.data[10] = (((inp.data[10] / 4) + 1)) * screenDepth;
     return inp;
   }
 
@@ -466,6 +366,62 @@ private:
       else break;
     }
     return q5;
+  }
+
+  void setPrograms(Vgpu *gpu) {
+    int idx = 0;
+    gpu->t_pc = idx;
+    for (auto v : transformationProgram.ins)
+      gpu->gpu__DOT__instr_mem__DOT__data[idx++] = v;
+    gpu->l_pc = idx;
+    for (auto v : lightingProgram.ins)
+      gpu->gpu__DOT__instr_mem__DOT__data[idx++] = v;
+    gpu->p_pc = idx;
+    for (auto v : projectionProgram.ins)
+      gpu->gpu__DOT__instr_mem__DOT__data[idx++] = v;
+  }
+
+  void transferTriangles(Vgpu *gpu) {
+    vector<WorkData> first_tris = object.getTriangles();
+    vector<WorkData> tris;
+    for (auto t : first_tris) {
+      tris.push_back(projection(lighting(transformation(t))));
+    }
+    int size = tris.size();
+    gpu->gpu__DOT__transformation__DOT__front = 0;
+    gpu->gpu__DOT__transformation__DOT__back = size;
+    gpu->gpu__DOT__transformation__DOT__size_ = size;
+    for (int i = 0; i < size; i++) {
+      auto item = tris[i];
+      for (int j = 0; j < 8; j++)
+        gpu->gpu__DOT__transformation__DOT__data[i][8 - j - 1] = (item.data[2 * j] << 16) + item.data[2 * j + 1];
+    }
+  }
+
+  void checkRasterization(Vgpu *gpu) {
+    bool should = gpu->gpu__DOT__proc1__DOT__request_new_pc_ && (gpu->gpu__DOT__rasterization__DOT__size_ > 0);
+    if (should) {
+
+      WorkData data;
+      for (int j = 0; j < 8; j++) {
+        data.data[j * 2] = (int16_t) (gpu->gpu__DOT__rasterization__DOT__data[gpu->gpu__DOT__rasterization__DOT__front][8 - j - 1] >> 16);
+        data.data[j * 2 + 1] = (int16_t) (gpu->gpu__DOT__rasterization__DOT__data[gpu->gpu__DOT__rasterization__DOT__front][8 - j - 1] % (1 << 16));
+      }
+      gpu->gpu__DOT__rasterization__DOT__size_ -= 1;
+      gpu->gpu__DOT__rasterization__DOT__front += 1;
+
+      for (int i = 0; i < 16; i++) cout << data.data[i] << " ";
+      cout << "\n";
+
+      vector<WorkData> next = rasterization(data);
+      for (WorkData unit : next) {
+        for (int j = 0; j < 8; j++)
+          gpu->gpu__DOT__zbuffer_queue__DOT__data[gpu->gpu__DOT__zbuffer_queue__DOT__back][8 - j - 1] = (unit.data[2 * j] << 16) + unit.data[2 * j + 1];
+        gpu->gpu__DOT__zbuffer_queue__DOT__back += 1;
+        gpu->gpu__DOT__zbuffer_queue__DOT__size_ += 1;
+      }
+
+    }
   }
 
 public:
@@ -495,7 +451,7 @@ public:
     vector<vector<Pixel>> image(640, vector<Pixel>(480, Pixel(0, 0, 0)));
 
     Verilated::traceEverOn(true);
-    Vgpu* gpu = new Vgpu;
+    Vgpu *gpu = new Vgpu;
     VerilatedVcdC *m_trace = new VerilatedVcdC;
     gpu->trace(m_trace, 5);
     m_trace->open("waveform.vcd");
@@ -503,42 +459,21 @@ public:
     gpu->clk = 0;
     gpu->eval();
 
-    queue<WorkData> zbuffer = getZBufferQueue();
-    int size = zbuffer.size();
-    gpu->gpu__DOT__zbuffer_queue__DOT__front = 0;
-    gpu->gpu__DOT__zbuffer_queue__DOT__back = size;
-    gpu->gpu__DOT__zbuffer_queue__DOT__size_ = size;
-    for (int i = 0; i < size; i++) {
-      auto item = zbuffer.front(); zbuffer.pop();
-      for (int j = 0; j < 8; j++) {
-        gpu->gpu__DOT__zbuffer_queue__DOT__data[i][8 - j - 1] = (item.data[2 * j] << 16) + item.data[2 * j + 1];
-      }
-      if (i == 0) {
-        for (int j = 0; j < 16; j++) {
-          cout << item.data[j] << " ";
-        }
-        cout << "\n";
-        for (int j = 0; j < 8; j++) {
-          cout << gpu->gpu__DOT__zbuffer_queue__DOT__data[i][j] << " ";
-        }
-        cout << "\n";
-      }
-    }
+    setPrograms(gpu);
+    transferTriangles(gpu);
 
     uint32_t idx = 0;
 
     while ((uint32_t) gpu->terminated != 1 && idx < 10000000) {
       gpu->clk = 0;
       gpu->eval();
-
       m_trace->dump((idx + 1) * 10 - 2);
 
       gpu->clk = 1;
       gpu->eval();
-
       m_trace->dump((idx + 1) * 10);
-      gpu->gpu__DOT__zbuffer_queue__DOT__back = size;
 
+      checkRasterization(gpu);
 
       Pixel &pixel = image[gpu->counterX][gpu->counterY];
       pixel.red = ((gpu->pixel & 0xff0000) >> 16);

@@ -20,17 +20,15 @@ module regs(input clk,
       if (writing_regs) begin
          for (i = 0; i < 8; i = i + 1) begin
             //store reg 0 at the end... dont worry about it lol....
-            data[i] <= change_me[(32*i+31)+:32];
+            data[i] <= change_me[(32*(8 - i - 1)+31)-:32];
          end
          i = 0;
       end
 
-      if (give_me) begin
-         for (i = 0; i < 8; i = i + 1) begin
-            the_regs[(32*i+31)+:32] <= data[i];
-         end
-         i = 0;
+      for (i = 0; i < 8; i = i + 1) begin
+        the_regs[(32*(8 - i - 1)+31)-:32] <= data[i];
       end
+      i = 0;
 
       rout0 <= data[rin0];
       rout1 <= data[rin1];

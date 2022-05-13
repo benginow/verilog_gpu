@@ -1,132 +1,101 @@
-    //stage zero is decode
-    //stage one is read regs
-    //stage two is read memory
-    //stage three is execute
+//stage zero is decode
+//stage one is read regs
+//stage two is read memory
+//stage three is execute
 
-module processor(
-                input clk,
+module processor(input            clk,
+                 output [15:0] curr_pc, input [31:0] instr,
+                 output [3:0]  readreg0, input signed [31:0] in_reg0,
+                 output [3:0]  readreg1, input signed [31:0] in_reg1,
+                 output        reg_wen, output [3:0] reg_waddr, output [31:0] reg_wval,
+                 output [1:0]  pred, input pred_val,
+                 output        pred_wen, output [1:0] pred_waddr, output pred_wval,
+                 output [15:0] readmem0, input [31:0] in_mem0,
+                 output        mem_wen, output [15:0] mem_waddr, output [31:0] mem_wval,
+                 output        queue_wen, output[3:0] queue_number,
+                 output    request_new_pc, input set_pc, input[15:0] new_pc);
 
-                output reg[15:0] pc, input[31:0] instr,
+   reg                     request_new_pc_ = 1;
+   assign request_new_pc = request_new_pc_;
 
-                output[3:0] readreg0, input[31:0] in_reg0,
-                output[3:0] readreg1, input[31:0] in_reg1,
-                output reg_wen, output[3:0] reg_waddr, output[31:0] reg_wval,
+   // PC stuff
+   reg [15:0]                  pc;
+   initial request_new_pc_ = 1;
 
-                output reg [1:0] pred, input pred_val,
-                output pred_wen, output[1:0] pred_waddr, output pred_wval,
-                output[15:0] readmem0, input[31:0] in_mem0,
-                output mem_wen, output[15:0] mem_waddr, output[31:0] mem_wval,
+   assign curr_pc = (set_pc ? new_pc : continue_on ? pc + 1 : pc);
+   always @(posedge clk) begin
+      if (set_pc && request_new_pc) begin
+         pc <= new_pc;
+         request_new_pc_ <= 0;
+      end
+   end
 
-                output queue_wen, output[3:0] queue_number, output reg request_new_pc, input[15:0] new_pc, input[1:0] idle
-                );
+   reg [2:0] stage = 0;
+   reg [31:0] saved_ins;
 
+   // Instruction Decoding
+   wire    [31:0]   ins = stage == 0 ? instr : saved_ins;
+   assign pred = ins[31:30];
+   wire       optype = ins[29];
+   wire  [4:0]     opcode = ins[28:24];
+   assign readreg0 = ins[23:20];
+   assign readreg1 = ins[19:16];
+   wire   [3:0]    tgtreg = (opcode == 0 || opcode == 5 || opcode == 6 || opcode == 8) ? ins[19:16] :
+(opcode == 12) ? ins[23:20] : ins[15:12];
+   wire   [15:0]    constant = ins[15:0];
 
-    reg[2:0] stage = 0;
+   wire       continue_on = (stage == 1 && (pred_val == 0 && pred != 0)) || (stage == 0 && (opcode == 1 || opcode == 15 || opcode == 16)) ||
+              (stage == 1 && (opcode == 1 || opcode == 2 || opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 || opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10 || opcode == 12 || opcode == 13 || opcode == 14)) ||
+              (stage == 2 && (opcode == 0));
 
-    //stage 1 variables
-    reg optype;
-    reg[4:0] opcode;
-    reg[3:0] reg0;
-    reg[3:0] reg1;
-    reg[3:0] targetreg;
-    reg[15:0] constant;
+   // Memory
+   assign readmem0 = in_reg0[15:0];
+   assign mem_wen = (stage == 1 && opcode == 1);
+   assign mem_waddr = in_reg1[15:0];
+   assign mem_wval = in_reg0;
 
+   // Queue
+   assign queue_wen = (!request_new_pc && stage == 0 && opcode == 15) || (stage == 1 && opcode == 14);
+   assign queue_number = opcode == 15 ? constant[3:0] : in_reg0[3:0];
 
-    //stage 2 variables
-    reg[15:0] reg0val;
-    reg[15:0] reg1val;
-    reg predregval;
+   // Predicate writing
+   assign pred_wen = (stage == 1 && opcode == 13);
+   assign pred_waddr = tgtreg[1:0];
+   assign pred_wval = in_reg0 < in_reg1;
 
+   // Register writing
+   assign reg_wen = (!request_new_pc && stage == 0 && (opcode == 12)) || (stage == 1 && (opcode == 2 || opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 || opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10 || opcode == 11)) || (stage == 2 && (opcode == 0));
+   assign reg_waddr = tgtreg;
+   assign reg_wval = opcode == 2 ? (in_reg0 * in_reg1) :
+                     opcode == 3 ? (in_reg0 + in_reg1) :
+                     opcode == 4 ? (in_reg0 - in_reg1) :
+                     opcode == 5 ? (in_reg0 >> constant) :
+                     opcode == 6 ? (in_reg0 << constant) :
+                     opcode == 7 ? (in_reg0 & in_reg1) :
+                     opcode == 8 ? (~in_reg0) :
+                     opcode == 9 ? (in_reg0 ^ in_reg1) :
+                     opcode == 10 ? (in_reg0 | in_reg1) :
+                     opcode == 11 ? (~(in_reg0 & in_reg1)) :
+                     opcode == 12 ? ({{16{1'b0}}, constant}) :
+                     opcode == 0 ? in_mem0 : 0;
 
-    //i/o variables
-    assign readreg0 = reg0;
-    assign readreg1 = reg1;
-    wire read_pred_val = pred_val;
-
-    //request new pc register
-    initial request_new_pc = 1;
-
-
-    always @(posedge clk) begin
-        //decode and idle stage
-        if (stage == 0) begin 
-            pred <= instr[31:30];
-           optype <= instr[29];
-            opcode <= instr[28:24];
-            reg0 <= instr[23:20];
-            reg1 <= instr[19:16];
-            targetreg <= instr[15:12];
-            constant <= instr[15:0];
-
-            //stage increments only if we are not idling
-            stage <= (request_new_pc || (idle != 0)) ? 0 : stage + 1;
-
-            reg_wen <= 0;
-            mem_wen <= 0;
-            queue_wen <= 0;
-            pred_wen <= 0;
-            request_new_pc <= 0;
-            
-        end
-
-        //read registers
-        if (stage == 1) begin
-            reg0val <= in_reg0;
-            reg1val <= in_reg1;
-            predregval <= pred ? read_pred_val : 1;
-            stage <= stage + 1;
-        end
-
-        //read from memory as needed
-        if (stage == 2) begin
-            readmem0 <= reg0val;
-        end
-
-        if (stage == 3 & predregval) begin
-
-            reg_wen <= (opcode == 0  || opcode == 2 
-            ||opcode == 3 || opcode == 4 || opcode == 5
-            || opcode == 6 || opcode == 7 || opcode == 8 
-            || opcode == 9 || opcode == 10 || opcode == 11
-            || opcode == 12) ? 1 : 0;
-
-            reg_waddr <= targetreg;
-
-            reg_wval <= (opcode == 0) ? readmem0 :
-                        (opcode == 2) ? reg0val * reg1val :
-                        (opcode == 3) ? reg0val + reg1val :
-                        (opcode == 4) ? reg0val - reg1val :
-                        (opcode == 5) ? reg0val >> reg1val :
-                        (opcode == 6) ? reg0val << reg1val :
-                        (opcode == 7) ? reg0val & reg1val :
-                        (opcode == 8) ? !reg0val :
-                        (opcode == 9) ? reg0val ^ reg1val :
-                        (opcode == 10) ? reg0val | reg1val :
-                        (opcode == 11) ? ~(reg0val & reg1val) :
-                        (opcode == 12) ? constant : reg_waddr;
-
-
-            mem_wen <= (opcode == 1);
-            mem_waddr <= reg1val;
-            mem_wval <= reg0val;
-
-            pred_wen <= (opcode == 13);
-            pred_waddr <= pred;
-            pred_wval <= (reg0val < reg1val);
-            
-
-            //store in queue based off of number
-            //need to communicate this to gpu, since gpu keeps track of all of this
-            queue_wen <= (opcode == 14) || (opcode == 15);
-            queue_number <= (opcode == 14) ? reg0val : constant;
-
-            request_new_pc <= opcode == 16;
-
-            stage <= 0;
+   // Stages
+   always @(posedge clk) begin
+      if (!request_new_pc) begin
+         if (stage == 0) begin
+            if (opcode == 16) begin
+               request_new_pc_ <= 1;
+            end
+            saved_ins <= ins;
+         end
+         if (continue_on) begin
             pc <= pc + 1;
-        end
-
-    end
-
+            stage <= 0;
+         end
+         else begin
+            stage <= stage + 1;
+         end
+      end
+   end
 
 endmodule
