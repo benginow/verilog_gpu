@@ -6,26 +6,24 @@
 module processor(
                 input clk,
 
-                output[15:0] pc, input[31:0] instr,
+                output reg[15:0] pc, input[31:0] instr,
 
-                output[3:0] readreg0, input[15:0] in_reg0,
-                output[3:0] readreg1, input[15:0] in_reg1,                
-                output reg_wen, output[3:0] reg_waddr, output[15:0] reg_wval,
+                output[3:0] readreg0, input[31:0] in_reg0,
+                output[3:0] readreg1, input[31:0] in_reg1,
+                output reg_wen, output[3:0] reg_waddr, output[31:0] reg_wval,
 
-                output[1:0] pred, input pred_val,
+                output reg [1:0] pred, input pred_val,
                 output pred_wen, output[1:0] pred_waddr, output pred_wval,
-                
-                output[15:0] readmem0, input[15:0] in_mem0,
-                output mem_wen, output[15:0] mem_waddr, output[15:0] mem_wval,
+                output[15:0] readmem0, input[31:0] in_mem0,
+                output mem_wen, output[15:0] mem_waddr, output[31:0] mem_wval,
 
-                output queue_wen, output[3:0] queue_number, output request_new_pc, input[15:0] new_pc, input[1:0] idle
+                output queue_wen, output[3:0] queue_number, output reg request_new_pc, input[15:0] new_pc, input[1:0] idle
                 );
 
 
     reg[2:0] stage = 0;
 
     //stage 1 variables
-    reg[1:0] pred;
     reg optype;
     reg[4:0] opcode;
     reg[3:0] reg0;
@@ -41,12 +39,12 @@ module processor(
 
 
     //i/o variables
-    wire[3:0] readreg0 = reg1;
-    wire[3:0] readreg1 = reg2;
+    assign readreg0 = reg0;
+    assign readreg1 = reg1;
     wire read_pred_val = pred_val;
 
     //request new pc register
-    reg request_new_pc = 1;
+    initial request_new_pc = 1;
 
 
     always @(posedge clk) begin
@@ -86,43 +84,43 @@ module processor(
 
         if (stage == 3 & predregval) begin
 
-            reg_wen <= (r_opcode == 0  || r_opcode == 2 
-            ||r_opcode == 3 || r_opcode == 4 || r_opcode == 5
-            || r_opcode == 6 || r_opcode == 7 || r_opcode == 8 
-            || r_opcode == 9 || r_opcode == 10 || r_opcode == 11
-            || r_opcode == 12) ? 1 : 0;
+            reg_wen <= (opcode == 0  || opcode == 2 
+            ||opcode == 3 || opcode == 4 || opcode == 5
+            || opcode == 6 || opcode == 7 || opcode == 8 
+            || opcode == 9 || opcode == 10 || opcode == 11
+            || opcode == 12) ? 1 : 0;
 
             reg_waddr <= targetreg;
 
-            reg_wval <= (r_opcode == 0) ? readmem0 :
-                        (r_opcode == 2) ? reg0val * reg1val :
-                        (r_opcode == 3) ? reg0val + reg1val :
-                        (r_opcode == 4) ? reg0val - reg1val :
-                        (r_opcode == 5) ? reg0val >> reg1val :
-                        (r_opcode == 6) ? reg0val << reg1val :
-                        (r_opcode == 7) ? reg0val & reg1val :
-                        (r_opcode == 8) ? !reg0val :
-                        (r_opcode == 9) ? reg0val ^ reg1val :
-                        (r_opcode == 10) ? reg0val | reg1val :
-                        (r_opcode == 11) ? ~(reg0val & reg1val) :
-                        (r_opcode == 12) ? constant : reg_waddr;
+            reg_wval <= (opcode == 0) ? readmem0 :
+                        (opcode == 2) ? reg0val * reg1val :
+                        (opcode == 3) ? reg0val + reg1val :
+                        (opcode == 4) ? reg0val - reg1val :
+                        (opcode == 5) ? reg0val >> reg1val :
+                        (opcode == 6) ? reg0val << reg1val :
+                        (opcode == 7) ? reg0val & reg1val :
+                        (opcode == 8) ? !reg0val :
+                        (opcode == 9) ? reg0val ^ reg1val :
+                        (opcode == 10) ? reg0val | reg1val :
+                        (opcode == 11) ? ~(reg0val & reg1val) :
+                        (opcode == 12) ? constant : reg_waddr;
 
 
-            mem_wen <= (r_opcode == 1);
+            mem_wen <= (opcode == 1);
             mem_waddr <= reg1val;
             mem_wval <= reg0val;
 
-            pred_wen <= (r_opcode == 13);
+            pred_wen <= (opcode == 13);
             pred_waddr <= pred;
             pred_wval <= (reg0val < reg1val);
             
 
             //store in queue based off of number
             //need to communicate this to gpu, since gpu keeps track of all of this
-            queue_wen <= (r_opcode == 14) || (r_opcode == 15);
-            queue_number <= (r_opcode == 14) ? reg0val : constant;
+            queue_wen <= (opcode == 14) || (opcode == 15);
+            queue_number <= (opcode == 14) ? reg0val : constant;
 
-            request_new_pc <= r_opcode == 16;
+            request_new_pc <= opcode == 16;
 
             stage <= 0;
             pc <= pc + 1;

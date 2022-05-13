@@ -12,10 +12,10 @@ module gpu(input               clk,
    initial terminated = 0;
 
    //QUEUES ______________________________________________________________________
-   reg [255:0]               global_add_regs;
+   wire [255:0]               global_add_regs;
 
-   reg                       t_reading;
-   reg                       t_adding;
+   wire                      t_reading;
+   wire                      t_adding;
    wire [255:0]              t_ret_regs;
    wire [15:0]               t_size;
    wire                      t_err;
@@ -24,10 +24,10 @@ module gpu(input               clk,
                         t_adding, global_add_regs,
                         t_size, t_err);
 
-   reg                       l_reading;
-   reg                       l_adding;
+   wire                      l_reading;
+   wire                      l_adding;
    wire [255:0]              l_ret_regs;
-   reg [255:0]               l_add_regs;
+   wire [255:0]              l_add_regs;
    wire                      l_err;
    wire [15:0]               l_size;
    queue lighting(clk,
@@ -35,10 +35,10 @@ module gpu(input               clk,
                   l_adding, global_add_regs,
                   l_size, l_err);
 
-   reg                       p_reading;
-   reg                       p_adding;
+   wire                      p_reading;
+   wire                      p_adding;
    wire [255:0]              p_ret_regs;
-   reg [255:0]               p_add_regs;
+   wire [255:0]              p_add_regs;
    wire                      p_err;
    wire [15:0]               p_size;
    queue projection(clk,
@@ -46,10 +46,9 @@ module gpu(input               clk,
                     p_adding, global_add_regs,
                     p_size, p_err);
 
-   reg                       r_reading = 1;
-   reg                       r_adding;
-   wire [255:0]              r_ret_regs;
-   reg [255:0]               r_add_regs;
+   wire                      r_reading;
+   wire                      r_adding;
+   wire [255:0]              r_add_regs;
    wire                      r_err;
    wire [15:0]               r_size;
    queue rasterization(clk,
@@ -90,81 +89,89 @@ module gpu(input               clk,
    framebuffer_mem framebuffer_mem(clk,
                                    framebuffer_mem_read, framebuffer_mem_out,
                                    framebuffer_mem_writing, framebuffer_mem_waddr, framebuffer_mem_wdata);
+
+   wire [15:0]               mem_read1;
+   wire [31:0]               mem_out1;
    mem mem(clk, readmem0, in_mem0,
-           memnull0, memnull1,
+           mem_read1, mem_out1,
            mem_wen, mem_waddr, mem_wval);
+
    //instruction memory
    //all you can do is read from instr mem
+   wire [15:0]               instr_mem_read1;
+   wire [31:0]               instr_mem_out1;
+   wire                      instr_mem_writing;
+   wire [15:0]               instr_mem_waddr;
+   wire [31:0]               instr_mem_wdata;
    mem instr_mem(clk, pc, read_instr_mem_addr,
-                 null0, null1,
-                 null2, null3, null4);
+                 instr_mem_read1, instr_mem_out1,
+                 instr_mem_writing, instr_mem_waddr, instr_mem_wdata);
 
 
    //REGISTERS __________________________________________________________
-   reg [3:0]                 queue_read;
    wire [255:0]              current_regs;
-   reg                       writing_regs;
-   reg [255:0]               queue_regs;
+   wire                      writing_regs;
+   wire [255:0]              queue_regs;
    regs                       curr_regs(clk, readreg0, reg0_output, 
-                                       readreg1, reg1_output,
-                                       reg_wen, reg_waddr, reg_wval,
+                                        readreg1, reg1_output,
+                                        reg_wen, reg_waddr, reg_wval,
 
-                                       pred, pred_val, 
-                                       pred_wen, pred_waddr, pred_wval,
+                                        pred, pred_val, 
+                                        pred_wen, pred_waddr, pred_wval,
 
-                                       writing_regs, queue_regs,
+                                        writing_regs, queue_regs,
 
-                                       queue_wen, current_regs
-                                       );
+                                        queue_wen, current_regs
+                                        );
 
    // PROCESSOR
-   wire [15:0]               pc;
+   // wire [15:0]               pc;
 
-   wire [15:0]               read_instr_mem_addr;
+   // wire [31:0]               read_instr_mem_addr;
 
-   wire [3:0]                readreg0;
-   wire [3:0]                readreg1;
-   wire [15:0]               reg0_output;
-   wire [15:0]               reg1_output;
-   wire                      reg_wen;
-   wire [3:0]                reg_waddr;
-   wire [15:0]               reg_wval;
+   // wire [3:0]                readreg0;
+   // wire [3:0]                readreg1;
+   // wire [31:0]               reg0_output;
+   // wire [31:0]               reg1_output;
+   // wire                      reg_wen;
+   // wire [3:0]                reg_waddr;
+   // wire [31:0]               reg_wval;
 
-   wire [1:0]                pred;
-   wire                      pred_val;
-   wire                      pred_wen;
-   wire [1:0]                pred_waddr;
-   wire                      pred_wval;
+   // wire [1:0]                pred;
+   // wire                      pred_val;
+   // wire                      pred_wen;
+   // wire [1:0]                pred_waddr;
+   // wire                      pred_wval;
 
-   wire [15:0]               readmem0;
-   wire [15:0]               in_mem0;
-   wire                      mem_wen;
-   wire [15:0]               mem_waddr;
-   wire [15:0]               mem_wval;
+   // wire [15:0]               readmem0;
+   // wire [31:0]               in_mem0;
+   // wire                      mem_wen;
+   // wire [15:0]               mem_waddr;
+   // wire [31:0]               mem_wval;
 
-   wire                      queue_wen;
-   wire [3:0]                queue_number;
+   // wire                      queue_wen;
+   // wire [3:0]                queue_number;
 
-   wire                      request_new_pc;
-   wire                      new_pc;
+   // wire                      request_new_pc;
+   // reg       [15:0]               new_pc;
 
-   processor proc1(clk, 
+   // processor proc1(clk, 
 
-                   pc, read_instr_mem_addr,
+   //                 pc, read_instr_mem_addr,
 
-                   readreg0, in_reg0,
-                   readreg1, in_reg1,
-                   reg_wen, reg_waddr, reg_wval,
+   //                 readreg0, reg0_output,
+   //                 readreg1, reg1_output,
+   //                 reg_wen, reg_waddr, reg_wval,
 
-                   pred, pred_val,
-                   pred_wen, pred_waddr, pred_wval,
+   //                 pred, pred_val,
+   //                 pred_wen, pred_waddr, pred_wval,
 
-                   readmem0, in_mem0,
-                   mem_wen, mem_waddr, mem_wval,
+   //                 readmem0, in_mem0,
+   //                 mem_wen, mem_waddr, mem_wval,
 
-                   queue_wen, queue_number,
-                   request_new_pc, new_pc, idling
-                   );
+   //                 queue_wen, queue_number,
+   //                 request_new_pc, new_pc, idling
+   //                 );
 
    //SETTING IDLING ___________________________________
 
@@ -185,7 +192,7 @@ module gpu(input               clk,
 
    //QUEUE ADDITION LOGIC________________________________________________________________
 
-   reg[2:0] queue_stage = 0;
+   reg [2:0] queue_stage = 0;
    reg [255:0] queue_registers;
    reg [3:0]   saved_queue_num;
 
@@ -211,7 +218,7 @@ module gpu(input               clk,
 
 
    //QUEUE SCHEDULING LOGIC_________________________________________________________
-   reg[1:0] scheduling_stage = 0;
+   reg [1:0] scheduling_stage = 0;
 
    //keep in mind, we only every read for p, s, or t. r is done in our hacky way,
    //and z buffer queue handles itself
@@ -219,7 +226,7 @@ module gpu(input               clk,
       //we are always running rasterization if we can be
       rasterization_flag <= r_size != 0;
 
-      scheduling_stage <= request_new_pc ? 1 : 
+      scheduling_stage <= request_new_pc ? 1 :
                           scheduling_stage == 1 ? 2 : 0;
 
       //STAGE 0
@@ -227,7 +234,7 @@ module gpu(input               clk,
       if (request_new_pc) begin
          new_pc <= (p_size > 0) ? p_pc :
                    (l_size > 0) ? l_pc :
-                   (t_size > 0) ? t_pc : 0;
+                   (t_size > 0) ? t_pc : new_pc;
       end 
 
       p_reading <= (request_new_pc && (p_size > 0)) ? 1 : 0;
@@ -241,11 +248,8 @@ module gpu(input               clk,
                     t_reading ? t_ret_regs : 0;
       writing_regs <= scheduling_stage == 1;
 
-      
-      
       //takes one cycle to find the next instruction once the pc has been updated
       pc_found <= scheduling_stage == 2;
-      
 
    end
 
