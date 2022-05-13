@@ -45,22 +45,13 @@ module processor(
     wire[3:0] readreg1 = reg2;
     wire read_pred_val = pred_val;
 
-    reg instr_wait = 0;
+    //request new pc register
+    reg request_new_pc = 1;
+
 
     always @(posedge clk) begin
-
+        //decode and idle stage
         if (stage == 0) begin 
-            //waiting on the new program counter to show up
-            if (request_new_pc) begin
-                //TODO: THIS IS GOING TO BE OFF BY ONE! FIX IT
-                
-                request_new_pc <= 0;
-            end
-
-            if (idle != 0) begin
-                stage <= 0;
-            end
-
             pred <= instr[31:30];
             optype <= instr[29]
             opcode <= instr[28:24];
@@ -68,14 +59,15 @@ module processor(
             reg1 <= instr[19:16];
             targetreg <= instr[15:12];
             constant <= instr[15:0];
-            stage <= (request_new_pc || idle) ? 0 : stage + 1;
 
-            //make sure you're no longer writing
-            //MAKE SURE THIS COMPILES AHHHHH
+            //stage increments only if we are not idling
+            stage <= (request_new_pc || (idle != 0)) ? 0 : stage + 1;
+
             reg_wen <= 0;
             mem_wen <= 0;
             queue_wen <= 0;
             pred_wen <= 0;
+            request_new_pc <= 0;
             
         end
 
@@ -93,110 +85,44 @@ module processor(
         end
 
         if (stage == 3 & predregval) begin
-                //load from memory
-            if (r_opcode == 0) begin
-                //need to read from reg then load memory next cycle
-                //TODO: DOUBLE CHECK THIS. MAKE SURE ASSEMBLER WORKS!
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= readmem0;
-            end
-            //store in memory
-            if (r_opcode == 1) begin
-                mem_wen <= 1;
-                mem_waddr <= reg1val;
-                mem_wval <= reg0val;
-            end
-            //multiply
-            if (r_opcode == 2) begin
-                //need to read from reg then store in reg next cycle
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val * reg1val;
-            end
-            //add
-            if (r_opcode == 3) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val + reg1val;
-            end
-            //sub
-            if (r_opcode == 4) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val - reg1val;
-            end
-            //srl
-            if (r_opcode == 5) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val >> reg1val;
-            end
-            //sll
-            if (r_opcode == 6) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val << reg1val;
-            end
-            //and
-            if (r_opcode == 7) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val & reg1val;
-            end
-            //not
-            if (r_opcode == 8) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= !reg0val;
-            end
-            //xor
-            if (r_opcode == 9) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val ^ reg1val;
-            end
-            //or
-            if (r_opcode == 10) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= reg0val | reg1val;
-            end
-            //nand
-            if (r_opcode == 11) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= ~(reg0val & reg1val);
-            end
-            //store literal in reg
-            if (r_opcode == 12) begin
-                reg_wen <= 1;
-                reg_waddr <= targetreg;
-                reg_wval <= constant;
-            end
-            //set predicate reg
-            if (r_opcode == 13) begin
-                pred_wen <= 1;
-                pred_waddr <= pred;
-                pred_wval <= (reg0val < reg1val);
-            end
+
+            reg_wen <= (r_opcode == 0  || r_opcode == 2 
+            ||r_opcode == 3 || r_opcode == 4 || r_opcode == 5
+            || r_opcode == 6 || r_opcode == 7 || r_opcode == 8 
+            || r_opcode == 9 || r_opcode == 10 || r_opcode == 11
+            || r_opcode == 12) ? 1 : 0;
+
+            reg_waddr <= targetreg;
+
+            reg_wval <= (r_opcode == 0) ? readmem0 :
+                        (r_opcode == 2) ? reg0val * reg1val :
+                        (r_opcode == 3) ? reg0val + reg1val :
+                        (r_opcode == 4) ? reg0val - reg1val :
+                        (r_opcode == 5) ? reg0val >> reg1val :
+                        (r_opcode == 6) ? reg0val << reg1val :
+                        (r_opcode == 7) ? reg0val & reg1val :
+                        (r_opcode == 8) ? !reg0val :
+                        (r_opcode == 9) ? reg0val ^ reg1val :
+                        (r_opcode == 10) ? reg0val | reg1val :
+                        (r_opcode == 11) ? ~(reg0val & reg1val) :
+                        (r_opcode == 12) ? constant : reg_waddr;
+
+
+            mem_wen <= (r_opcode == 1);
+            mem_waddr <= reg1val;
+            mem_wval <= reg0val;
+
+            pred_wen <= (r_opcode == 13);
+            pred_waddr <= pred;
+            pred_wval <= (reg0val < reg1val);
+            
+
             //store in queue based off of number
             //need to communicate this to gpu, since gpu keeps track of all of this
-            if (r_opcode == 14) begin
-                queue_wen <= 1;
-                queue_number <= reg0val;
-            end
-            //store in queue based off of register
-            //need to communicate this to gpu so it may do it
-            if (r_opcode == 15) begin
-                queue_wen <= 1;
-                queue_number <= reg1val;
-            end
-            //end
-            if (r_opcode == 16) begin
-                //look for new work to do
-                request_new_pc <= 1;
-            end
+            queue_wen <= (r_opcode == 14) || (r_opcode == 15);
+            queue_number <= (r_opcode == 14) ? reg0val : constant;
+
+            request_new_pc <= r_opcode == 16;
 
             stage <= 0;
             pc <= pc + 1;

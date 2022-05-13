@@ -1,4 +1,9 @@
 begin gpu(      input            clk,
+                input [15:0]     t_pc,
+                input [15:0]     l_pc,
+                input [15:0]     p_pc,
+                output           rasterization_flag,
+                output [255:0]   r_ret_regs,
                output reg [2:0] pixel,
                output           hsync_out,
                output           vsync_out,
@@ -124,7 +129,7 @@ wire[3:0] queue_number;
 wire request_new_pc;
 wire new_pc;
 
-reg[1:0] idling;
+reg[1:0] idling = 1;
 
 processor proc1(clk, 
 
@@ -186,35 +191,6 @@ always @(posedge clk) begin
 end
 
 //QUEUE SCHEDULING LOGIC_________________________________________________________
-always @(posedge clk) begin
-    //MAKE SURE THAT REQUEST NEW PC WORKS CORRECTLY
-    //YOU REQUEST REGS FROM QUEUE WHILE IDLING
-    //THIS WHOLE SEQUENCE NEEDS TO BE FIXED
-    //NEED TO BE IDLING WHEN 
-    idling <= request_new_pc ? 2 : 
-                (idling != 0) ? idling - 1 : 0;
-    //FIX THIS
-    requesting_regs_from_queue <= idling ? 1 : 0;
-    writing_regs <= requesting_regs_from_queue ? 1 : 0;
-    if (request_new_pc) begin
-        //the buffer queue will process itself, so we don't check size of buffer queue
-        if (r_size >= p_size && r_size != 0) begin
-            new_pc <= 
-        end
-        else if (p_size >= l_size && p_size != 0) begin
-            new_pc <= 
-        end
-        else if (l_size >= t_size && l_size != 0) begin
-            new_pc <= 
-        end
-        else if (t_size != 0) begin
-            new_pc <= 
-        end
-        else begin
-            terminated <= 1;
-        end
-    end
-end
 
 //Z-BUFFER QUEUE LOGIC____________________________________________________________
 
