@@ -13,9 +13,9 @@ module processor(input            clk,
                  output [15:0] readmem0, input [31:0] in_mem0,
                  output        mem_wen, output [15:0] mem_waddr, output [31:0] mem_wval,
                  output        queue_wen, output[3:0] queue_number,
-                 output    request_new_pc, input set_pc, input[15:0] new_pc);
+                 output        request_new_pc, input set_pc, input[15:0] new_pc);
 
-   reg                     request_new_pc_ = 1;
+   reg                         request_new_pc_ = 1;
    assign request_new_pc = request_new_pc_;
 
    // PC stuff
@@ -34,39 +34,43 @@ module processor(input            clk,
    reg [31:0] saved_ins;
 
    // Instruction Decoding
-   wire    [31:0]   ins = stage == 0 ? instr : saved_ins;
+   wire [31:0] ins = stage == 0 ? instr : saved_ins;
    assign pred = ins[31:30];
-   wire       optype = ins[29];
-   wire  [4:0]     opcode = ins[28:24];
+   wire        optype = ins[29];
+   wire [4:0]  opcode = ins[28:24];
    assign readreg0 = ins[23:20];
    assign readreg1 = ins[19:16];
-   wire   [3:0]    tgtreg = (opcode == 0 || opcode == 5 || opcode == 6 || opcode == 8) ? ins[19:16] :
-(opcode == 12) ? ins[23:20] : ins[15:12];
-   wire   [15:0]    constant = ins[15:0];
+   wire [3:0]  tgtreg = (opcode == 0 || opcode == 5 || opcode == 6 || opcode == 8) ? ins[19:16] :
+               (opcode == 12) ? ins[23:20] : ins[15:12];
+   wire [15:0] constant = ins[15:0];
 
-   wire       continue_on = (stage == 1 && (pred_val == 0 && pred != 0)) || (stage == 0 && (opcode == 1 || opcode == 15 || opcode == 16)) ||
-              (stage == 1 && (opcode == 1 || opcode == 2 || opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 || opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10 || opcode == 12 || opcode == 13 || opcode == 14)) ||
-              (stage == 2 && (opcode == 0));
+   wire        dont_write = (stage == 1 && (pred_val == 0 && pred != 0)) || request_new_pc;
+   wire        continue_on = (stage == 1 && (pred_val == 0 && pred != 0)) ||
+               (stage == 1 && (opcode == 1 || opcode == 2 || opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 || opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10 || opcode == 11 || opcode == 12 || opcode == 13 || opcode == 14 || opcode == 15 || opcode == 16)) ||
+               (stage == 2 && (opcode == 0));
 
    // Memory
    assign readmem0 = in_reg0[15:0];
-   assign mem_wen = (stage == 1 && opcode == 1);
+   assign mem_wen = !dont_write && (stage == 1 && opcode == 1);
    assign mem_waddr = in_reg1[15:0];
    assign mem_wval = in_reg0;
 
    // Queue
-   assign queue_wen = (!request_new_pc && stage == 0 && opcode == 15) || (stage == 1 && opcode == 14);
+   assign queue_wen = !dont_write && ((stage == 1 && opcode == 15) || (stage == 1 && opcode == 14));
    assign queue_number = opcode == 15 ? constant[3:0] : in_reg0[3:0];
 
    // Predicate writing
-   assign pred_wen = (stage == 1 && opcode == 13);
+   assign pred_wen = !dont_write && (stage == 1 && opcode == 13);
    assign pred_waddr = tgtreg[1:0];
-   assign pred_wval = in_reg0 < in_reg1;
+   assign pred_wval = in_reg0_tmp < in_reg1_tmp;
+   wire signed [15:0] in_reg0_tmp = in_reg0[15:0];
+   wire signed [15:0] in_reg1_tmp = in_reg1[15:0];
+   wire signed [15:0] mult = in_reg0_tmp * in_reg1_tmp;
 
    // Register writing
-   assign reg_wen = (!request_new_pc && stage == 0 && (opcode == 12)) || (stage == 1 && (opcode == 2 || opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 || opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10 || opcode == 11)) || (stage == 2 && (opcode == 0));
+   assign reg_wen = !dont_write && ((stage == 1 && opcode == 12) || (stage == 1 && (opcode == 2 || opcode == 3 || opcode == 4 || opcode == 5 || opcode == 6 || opcode == 7 || opcode == 8 || opcode == 9 || opcode == 10 || opcode == 11)) || (stage == 2 && (opcode == 0)));
    assign reg_waddr = tgtreg;
-   assign reg_wval = opcode == 2 ? (in_reg0 * in_reg1) :
+   assign reg_wval = opcode == 2 ? ({{16{1'b0}}, mult}) :
                      opcode == 3 ? (in_reg0 + in_reg1) :
                      opcode == 4 ? (in_reg0 - in_reg1) :
                      opcode == 5 ? (in_reg0 >> constant) :
@@ -83,10 +87,12 @@ module processor(input            clk,
    always @(posedge clk) begin
       if (!request_new_pc) begin
          if (stage == 0) begin
+            saved_ins <= ins;
+         end
+         if (stage == 1) begin
             if (opcode == 16) begin
                request_new_pc_ <= 1;
             end
-            saved_ins <= ins;
          end
          if (continue_on) begin
             pc <= pc + 1;

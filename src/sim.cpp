@@ -35,6 +35,7 @@ public:
     getline(file, line);
     if (line != "OFF") {
       errorMessage = "Invalid header format";
+      return;
     }
 
     getline(file, line);
@@ -91,6 +92,7 @@ public:
       data[i].data[3] = round(n.x * 256);
       data[i].data[7] = round(n.y * 256);
       data[i].data[11] = round(n.z * 256);
+      // cout << data[i].data[3] << " " << data[i].data[7] << " " << data[i].data[11] << "\n";
       data[i].data[12] = 128;
       data[i].data[13] = 128;
       data[i].data[14] = 128;
@@ -187,81 +189,166 @@ Program transformationProgram({
     LI(9, 0, 0), ADD(9, 4, 9, 0), AND(9, 10, 9, 0),
     ADD(9, 12, 9, 0),
     SLL(8, 16, 8, 0), ADD(8, 9, 4, 0),
-    STOREQI(1, 0), END(0)});
-Program lightingProgram({
+
   LI(10, 0xFFFF, 0),
   LI(11, 7, 0),
   LI(12, 11, 0),
 
-  //save dot in reg 13
+  // save dot in reg 13
   LI(13, 0, 0),
-  //do math in reg 14
+  // do math in reg 14
 
-  //MATH FOR 3
+  // MATH FOR 3
   LI(14, 0, 0),
   ADD(14, 1, 14, 0),
-  //shift down
-  SRL(14, 16, 14, 0),
+  // SLL(14, 16, 14, 0),
+  // SRL(14, 16, 14, 0),
+  AND(14, 10, 14, 0),
+  SRL(14, 4, 14, 0),
   MUL(14, 11, 14, 0),
   ADD(14, 13, 13, 0),
 
-  //MATH FOR 7
+  // MATH FOR 7
   LI(14, 0, 0),
   ADD(14, 3, 14, 0),
-  //take top bits
-  SRL(14, 16, 14, 0),
-  //multiply by 3
+  // //take top bits
+  AND(14, 10, 14, 0),
+  SRL(14, 4, 14, 0),
+  // //multiply by 3
   MUL(14, 11, 14, 0),
-  //add to reg 13
+  // //add to reg 13
   ADD(14, 13, 13, 0),
 
-  //MATH FOR 11
+  // //MATH FOR 11
   LI(14, 0, 0),
   ADD(14, 5, 14, 0),
-  //take top bits
-  SRL(14, 16, 14, 0),
-  //multiply by 3
-  MUL(14, 11, 14, 0),
-  //add to reg 13
-  ADD(14, 13, 13, 0),
+  // //take top bits
+  // SLL(14, 16, 14, 0),
+  // SRL(14, 16, 14, 0),
+  AND(14, 10, 14, 0),
+  SRL(14, 4, 14, 0),
+  // //multiply by 3
+  MUL(14, 12, 14, 0),
+  // //add to reg 13
+  SUB(13, 14, 13, 0),
 
   //if dot is less than 0, then we set to 0.
   LI(14, 0, 0),
-  SETLT(14, 0, 1, 0),
-  LI(14, 0, 1),
+  // NOT(13, 13, 1),
+
+  // SRL(13, 8, 13, 0),
+  SETLT(13, 14, 1, 0),
+  // LI(13, 0, 1),
+  // LI(7, 0, 0),
+  // ADD(7, 13, 7, 0),
+
+  LI(14, 0, 0),
+  ADD(14, 6, 14, 0),
+  SRL(14, 16, 14, 0),
+  MUL(14, 13, 14, 0),
+  SRL(14, 8, 14, 0),
+  SLL(14, 16, 14, 0),
+
+  LI(15, 0, 0),
+  ADD(15, 6, 15, 0),
+  AND(15, 10, 15, 0),
+  // SLL(15, 16, 15, 0),
+  // SRL(15, 16, 15, 0),
+  MUL(15, 13, 15, 0),
+  SRL(15, 8, 15, 0),
+
+  ADD(14, 15, 6, 0),
+
+  LI(14, 0, 0),
+  ADD(14, 7, 14, 0),
+  AND(14, 10, 14, 0),
+  // SLL(15, 16, 15, 0),
+  // SRL(15, 16, 15, 0),
+
+  LI(15, 0, 0),
+  ADD(15, 7, 15, 0),
+  SRL(15, 16, 15, 0),
+  MUL(15, 13, 15, 0),
+  SRL(15, 8, 15, 0),
+  SLL(15, 16, 15, 0),
+
+  ADD(14, 15, 7, 0),
+
+  STOREQI(1, 0), END(0)});
+Program lightingProgram({
+  // LI(10, 0xFFFF, 0),
+  // LI(11, 7, 0),
+  // LI(12, 11, 0),
+
+  //save dot in reg 13
+  // LI(13, 0, 0),
+  //do math in reg 14
+
+  //MATH FOR 3
+  // LI(14, 0, 0),
+  // ADD(14, 1, 14, 0),
+  //shift down
+  // SRL(14, 20, 14, 0),
+  // MUL(14, 11, 14, 0),
+  // ADD(14, 13, 13, 0),
+
+  //MATH FOR 7
+  // LI(14, 0, 0),
+  // ADD(14, 3, 14, 0),
+  // //take top bits
+  // SRL(14, 20, 14, 0),
+  // //multiply by 3
+  // MUL(14, 11, 14, 0),
+  // //add to reg 13
+  // ADD(14, 13, 13, 0),
+
+  // //MATH FOR 11
+  // LI(14, 0, 0),
+  // ADD(14, 5, 14, 0),
+  // //take top bits
+  // SRL(14, 20, 14, 0),
+  // //multiply by 3
+  // MUL(14, 12, 14, 0),
+  // //add to reg 13
+  // ADD(14, 13, 13, 0),
+
+  // //if dot is less than 0, then we set to 0.
+  // LI(14, 0, 0),
+  // SETLT(13, 14, 1, 0),
+  // LI(14, 0, 1),
 
 
   //inp.data[12] *= dot;
   //inp.data[12] >>= 8;
   //inp.data[13] *= dot;
   //inp.data[13] >>= 8;
-  LI(14, 0, 0),
-  ADD(14, 6, 14, 0),
-  AND(14, 10, 14, 0),
-  MUL(14, 13, 14, 0),
-  SRL(14, 8, 14),
+  // LI(14, 0, 0),
+  // ADD(14, 6, 14, 0),
+  // AND(14, 10, 14, 0),
+  // MUL(14, 13, 14, 0),
+  // SRL(14, 8, 14, 0),
   
-  LI(15, 0, 0),
-  ADD(15, 6, 15, 0),
-  SRL(15, 16, 15, 0),
-  MUL(15, 13, 15, 0),
-  SRL(15, 8, 15, 0),
-  SLL(15, 16, 15, 0),
+  // LI(15, 0, 0),
+  // ADD(15, 6, 15, 0),
+  // SRL(15, 16, 15, 0),
+  // MUL(15, 13, 15, 0),
+  // SRL(15, 8, 15, 0),
+  // SLL(15, 16, 15, 0),
 
-  ADD(14, 15, 6, 0),
-  //14 and 15
-  LI(14, 0, 0),
-  ADD(14, 7, 14, 0),
-  AND(14, 10, 14, 0),
-  MUL(14, 13, 14, 0),
-  SRL(14, 8, 14),
+  // ADD(14, 15, 6, 0),
+  // //14 and 15
+  // LI(14, 0, 0),
+  // ADD(14, 7, 14, 0),
+  // AND(14, 10, 14, 0),
+  // MUL(14, 13, 14, 0),
+  // SRL(14, 8, 14, 0),
   
-  LI(15, 0, 0),
-  ADD(15, 7, 15, 0),
-  SRL(15, 16, 15, 0),
-  SLL(15, 16, 15, 0),
+  // LI(15, 0, 0),
+  // ADD(15, 7, 15, 0),
+  // SRL(15, 16, 15, 0),
+  // SLL(15, 16, 15, 0),
 
-  ADD(14, 15, 7, 0),
+  // ADD(14, 15, 7, 0),
 
   //zero out top bits
   
@@ -449,6 +536,9 @@ private:
     if (y3 < y2) swap(x2, x3), swap(y2, y3), swap(z2, z3), swap(a2, a3);
     if (y2 < y1) swap(x1, x2), swap(y1, y2), swap(z1, z2), swap(a1, a2);
 
+    if (inp.data[12] > 130) return queue;
+      // cout << inp.data[12] << " " << inp.data[13] << " " << inp.data[14] <<  " " << inp.data[15] << "\n";
+
     // cout << x1 << " " << y1 << " " << z1 << " " << x2 << " " << y2 << "  " << z2 << "\n" ;
 
     State s1(x1, y1, z1, x2, y2, z2), s2(x1, y1, z1, x3, y3, z3);
@@ -574,7 +664,7 @@ private:
     vector<WorkData> tris = object.getTriangles();
     // vector<WorkData> tris;
     // for (auto t : first_tris) {
-    //   tris.push_back(lighting(transformation(t)));
+    //   tris.push_back(t);
     // }
     int size = tris.size();
     gpu->gpu__DOT__transformation__DOT__front = 0;
@@ -603,16 +693,12 @@ private:
       // cout << "\n";
 
       vector<WorkData> next = rasterization(data);
-      int large = 0;
       for (WorkData unit : next) {
         for (int j = 0; j < 8; j++)
           gpu->gpu__DOT__zbuffer_queue__DOT__data[gpu->gpu__DOT__zbuffer_queue__DOT__back][8 - j - 1] = (unit.data[2 * j] << 16) + unit.data[2 * j + 1];
         gpu->gpu__DOT__zbuffer_queue__DOT__back += 1;
         gpu->gpu__DOT__zbuffer_queue__DOT__size_ += 1;
-        large = max(large, (int) gpu->gpu__DOT__zbuffer_queue__DOT__size_);
       }
-      if (large >= 30000)
-        cout << large << "\n";
 
     }
   }

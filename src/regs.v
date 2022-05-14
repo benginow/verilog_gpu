@@ -12,6 +12,10 @@ module regs(input clk,
 
    reg [31:0]           data[0:15];
    reg                  pred[3:0];
+   initial pred[0] = 1;
+   initial pred[1] = 1;
+   initial pred[2] = 1;
+   initial pred[3] = 1;
    integer              i;
 
    always @(posedge clk) begin
