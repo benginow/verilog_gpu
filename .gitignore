@@ -1,4 +1,4 @@
 obj_dir/
 sim
-*.bmp
+output.bmp
 *.vcd
